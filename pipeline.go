@@ -57,10 +57,6 @@ func (p *Pipeline) prepare(id string) error {
 		if err := fs.Mkdirp(p.Workdir); err != nil {
 			return fmt.Errorf("[workflow][prepare] failed to create workdir(path: %s): %s", p.Workdir, err)
 		}
-	} else {
-		if ok := fs.IsEmpty(p.Workdir); !ok {
-			return fmt.Errorf("[workflow][prepare] workdir(path: %s) is not empty", p.Workdir)
-		}
 	}
 
 	if p.Environment == nil {

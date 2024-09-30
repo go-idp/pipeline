@@ -81,8 +81,8 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 }
 
 func (s *Step) Run(ctx context.Context) error {
-	// s.logger.Infof("[step: %s] start", s.Name)
-	// defer s.logger.Infof("[step: %s] done", s.Name)
+	s.logger.Infof("[step: %s] start", s.Name)
+	defer s.logger.Infof("[step: %s] done", s.Name)
 
 	if s.State == nil {
 		return fmt.Errorf("you should setup before run")

@@ -11,7 +11,6 @@ import (
 	"github.com/go-zoox/fetch"
 	"github.com/go-zoox/fs"
 	"github.com/go-zoox/logger"
-	"github.com/go-zoox/uuid"
 
 	"github.com/go-idp/pipeline"
 	"github.com/go-zoox/cli"
@@ -82,8 +81,6 @@ func RegisterRun(app *cli.MultipleProgram) {
 			if workdir := ctx.String("workdir"); workdir != "" {
 				// pl.Workdir = workdir
 				p.SetWorkdir(workdir)
-			} else {
-				p.SetWorkdir(fs.JoinPath(fs.TmpDirPath(), "go-idp/pipeline", "build", uuid.V4()))
 			}
 
 			for _, key := range ctx.StringSlice("allow-env") {
