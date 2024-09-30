@@ -97,6 +97,11 @@ func (p *Pipeline) clean() error {
 		return nil
 	}
 
+	// if workdir is current dir, skip clean
+	if p.Workdir == fs.CurrentDir() {
+		return nil
+	}
+
 	if ok := fs.IsExist(p.Workdir); !ok {
 		return nil
 	}
