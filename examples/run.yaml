@@ -1,0 +1,26 @@
+name: release docker
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+  EUNOMIA_CI: "true"
+  EUNOMIA_GIT_BRANCH: master
+  EUNOMIA_GIT_REPOSITORY: https://github.com/go-idp/pipeline
+  EUNOMIA_RUNNER_ARCH: amd64
+  EUNOMIA_RUNNER_NAME: IDP CI
+  EUNOMIA_RUNNER_OS: Linux
+  EUNOMIA_RUNNER_PLATFORM: linux
+  EUNOMIA_RUNNER_USER: runner
+
+stages:
+  - name: build
+    jobs:
+      - name: 构建
+        steps:
+          - name: build
+            command: |
+              docker --version
+              docker info
+              docker buildx version
+              docker buildx build -t registry.idp.example.com/idp/backend:test-pipeline .

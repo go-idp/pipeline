@@ -14,21 +14,21 @@ environment:
   EUNOMIA_RUNNER_USER: runner
 
 stages:
-  # - name: checkout
-  #   jobs:
-  #     - name: checkout
-  #       steps:
-  #         - name: checkout
-  #           command: |
-  #             # set -x
-  #             echo "[$(date))] 认证 ($GITHUB_SERVER_URL)"
-  #             git config --global http.${GITHUB_SERVER_URL}.extraheader "AUTHORIZATION: basic "$(echo -n "x-access-token:${GITHUB_TOKEN}" | base64)
-  #             echo "[$(date))] 检出 (REPO: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}, DIR: $PWD)"
-  #             git clone --progress --depth 1 -b ${GITHUB_REF_NAME} ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY} $PWD
+  - name: checkout
+    jobs:
+      - name: frontend
+        steps:
+          - name: checkout
+            command: |
+              # set -x
+              echo "[$(date))] 认证 ($GITHUB_SERVER_URL)"
+              git config --global http.${GITHUB_SERVER_URL}.extraheader "AUTHORIZATION: basic "$(echo -n "x-access-token:${GITHUB_TOKEN}" | base64)
+              echo "[$(date))] 检出 (REPO: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}, DIR: $PWD)"
+              git clone --progress --depth 1 -b ${GITHUB_REF_NAME} ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY} $PWD
               
   - name: build
     jobs:
-      - name: build
+      - name: 构建
         steps:
           - name: build
             command: |
@@ -40,7 +40,7 @@ stages:
   # - name: deploy
   #   type: deploy
   #   mode: serial 
-  #   title: deploy
+  #   title: 部署
   #   jobs:
   #     - name: 部署
   #       steps:
