@@ -1,6 +1,6 @@
 name: Build Zmicro Docker Image
 
-image: whatwewant/zmicro:v1
+image: whatwewant/dind:v24-1
 
 environment:
   CI: "true"
