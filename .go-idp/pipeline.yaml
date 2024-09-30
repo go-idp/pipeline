@@ -64,7 +64,7 @@ stages:
             command: |
               ./pipeline run \
               -c $PWD/examples/docker.yaml \
-              -w /home/runner/work/free-terminal
+              -w /home/runner/work/pipeline/pipeline
 
   # - name: deploy
   #   jobs:
