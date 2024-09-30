@@ -35,6 +35,8 @@ stages:
               docker --version
               docker info
               docker buildx version
+              pwd
+              ls -al $RUNNER_WORKSPACE
               docker buildx build -t registry.idp.example.com/idp/backend:test-pipeline .
 
   # - name: deploy
