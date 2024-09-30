@@ -26,6 +26,13 @@ stages:
   #             echo "[$(date))] 检出 (REPO: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}, DIR: $PWD)"
   #             git clone --progress --depth 1 -b ${GITHUB_REF_NAME} ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY} $PWD
 
+  - name: prepare
+    jobs:
+      - name: prepare
+        steps:
+          - name: install go
+            command: zmicro package install go
+
   - name: build
     jobs:
       - name: build
