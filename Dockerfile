@@ -38,6 +38,8 @@ RUN zmicro package install kubectl
 
 RUN zmicro package install helm
 
+RUN zmicro package install gzcaas
+
 ARG VERSION=latest
 
 ENV VERSION=${VERSION}
