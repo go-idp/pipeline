@@ -15,7 +15,8 @@ import (
 )
 
 type Pipeline struct {
-	Name   string         `json:"name" yaml:"name"`
+	Name string `json:"name" yaml:"name"`
+	//
 	Stages []*stage.Stage `json:"stages" yaml:"stages"`
 	//
 	Workdir string `json:"workdir" yaml:"workdir"`
@@ -49,6 +50,10 @@ func (p *Pipeline) prepare(id string) error {
 	logger.Infof("[workflow][prepare] start ...")
 	defer logger.Infof("[workflow][prepare] done")
 
+	if p.Name == "" {
+		return fmt.Errorf("[workflow][prepare] name is required")
+	}
+
 	if p.Workdir == "" {
 		p.Workdir = fs.CurrentDir()
 	}
@@ -69,6 +74,10 @@ func (p *Pipeline) prepare(id string) error {
 	p.Environment["PIPELINE_VERSION"] = Version
 	p.Environment["PIPELINE_NAME"] = p.Name
 	p.Environment["PIPELINE_WORKDIR"] = p.Workdir
+
+	if len(p.Stages) == 0 {
+		return fmt.Errorf("[workflow][prepare] no stages found, stages is required")
+	}
 
 	p.State = &State{
 		ID:     id,
