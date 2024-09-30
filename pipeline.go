@@ -53,10 +53,13 @@ func (p *Pipeline) prepare(id string) error {
 		p.Workdir = fs.CurrentDir()
 	}
 
-	if ok := fs.IsExist(p.Workdir); !ok {
-		logger.Infof("[workflow][prepare] create workdir(path: %s)", p.Workdir)
-		if err := fs.Mkdirp(p.Workdir); err != nil {
-			return fmt.Errorf("[workflow][prepare] failed to create workdir(path: %s): %s", p.Workdir, err)
+	// if workdir is current dir, skip create
+	if p.Workdir != fs.CurrentDir() {
+		if ok := fs.IsExist(p.Workdir); !ok {
+			logger.Infof("[workflow][prepare] create workdir(path: %s)", p.Workdir)
+			if err := fs.Mkdirp(p.Workdir); err != nil {
+				return fmt.Errorf("[workflow][prepare] failed to create workdir(path: %s): %s", p.Workdir, err)
+			}
 		}
 	}
 
@@ -161,11 +164,12 @@ func (p *Pipeline) String() string {
 	return string(v)
 }
 
-func (p *Pipeline) SetWorkdir(workdir string) {
+func (p *Pipeline) SetWorkdir(workdir string) *Pipeline {
 	p.Workdir = workdir
+	return p
 }
 
-func (p *Pipeline) SetEnvironment(environment map[string]string) {
+func (p *Pipeline) SetEnvironment(environment map[string]string) *Pipeline {
 	if p.Environment == nil {
 		p.Environment = make(map[string]string)
 	}
@@ -175,20 +179,31 @@ func (p *Pipeline) SetEnvironment(environment map[string]string) {
 			p.Environment[k] = v
 		}
 	}
+
+	return p
 }
 
-func (p *Pipeline) SetStdout(stdout io.Writer) {
+func (p *Pipeline) SetImage(image string) *Pipeline {
+	p.Image = image
+	return p
+}
+
+func (p *Pipeline) SetStdout(stdout io.Writer) *Pipeline {
 	p.stdout = stdout
 
 	for _, stage := range p.Stages {
 		stage.SetStdout(stdout)
 	}
+
+	return p
 }
 
-func (p *Pipeline) SetStderr(stderr io.Writer) {
+func (p *Pipeline) SetStderr(stderr io.Writer) *Pipeline {
 	p.stderr = stderr
 
 	for _, stage := range p.Stages {
 		stage.SetStderr(stderr)
 	}
+
+	return p
 }
