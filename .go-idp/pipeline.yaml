@@ -57,9 +57,14 @@ stages:
                 --allow-env GITHUB_REF_NAME \
                 --allow-env GITHUB_SERVER_URL \
                 --allow-env GITHUB_REPOSITORY
-                
+
+          # @TODO cannot test in github action
+          # issue: invalid mount config for type "bind": bind source path does not exist: /__w/pipeline/pipeline
           - name: examples/docker.yaml
-            command: ./pipeline run -c $PWD/examples/docker.yaml
+            command: |
+              ./pipeline run \
+              -c $PWD/examples/docker.yaml \
+              -w /home/runner/work/free-terminal
 
   # - name: deploy
   #   jobs:
