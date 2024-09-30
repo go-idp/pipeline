@@ -20,8 +20,9 @@ type Pipeline struct {
 	//
 	Workdir string `json:"workdir" yaml:"workdir"`
 	//
-	Image       string            `json:"image" yaml:"image"`
 	Environment map[string]string `json:"environment" yaml:"environment"`
+	//
+	Image string `json:"image" yaml:"image"`
 	//
 	State *State `json:"state" yaml:"state"`
 	//
@@ -77,8 +78,9 @@ func (p *Pipeline) prepare(id string) error {
 		err := s.Setup(fmt.Sprintf("%s.%d", p.State.ID, index), &stage.Stage{
 			Workdir: p.Workdir,
 			//
-			Image:       p.Image,
 			Environment: p.Environment,
+			//
+			Image: p.Image,
 		})
 		if err != nil {
 			return err

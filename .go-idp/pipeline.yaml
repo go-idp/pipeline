@@ -25,30 +25,43 @@ stages:
   #             git config --global http.${GITHUB_SERVER_URL}.extraheader "AUTHORIZATION: basic "$(echo -n "x-access-token:${GITHUB_TOKEN}" | base64)
   #             echo "[$(date))] 检出 (REPO: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}, DIR: $PWD)"
   #             git clone --progress --depth 1 -b ${GITHUB_REF_NAME} ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY} $PWD
-              
+
   - name: build
     jobs:
       - name: build
         steps:
-          - name: build
+          - name: go build
+            command: go build -o pipeline ./cmd/pipeline
+
+  - name: test
+    jobs:
+      - name: test run
+        steps:
+          - name: examples/run.yaml
+            command: ./pipeline run -c $PWD/examples/run.yaml
+
+          - name: examples/github.yaml
             command: |
-              docker --version
-              docker info
-              docker buildx version
-              pwd
-              ls -al $RUNNER_WORKSPACE
-              docker buildx build -t registry.idp.example.com/idp/backend:test-pipeline .
+              ./pipeline run \
+                -c $PWD/examples/github.yaml \
+                --allow-env GITHUB_TOKEN \
+                --allow-env GITHUB_REF_NAME \
+                --allow-env GITHUB_SERVER_URL \
+                --allow-env GITHUB_REPOSITORY
+                
+          - name: examples/docker.yaml
+            command: ./pipeline run -c $PWD/examples/docker.yaml
 
   # - name: deploy
-  #   type: deploy
-  #   mode: serial 
-  #   title: deploy
   #   jobs:
-  #     - name: 部署
+  #     - name: deploy
   #       steps:
-  #         - name: 部署
+  #         - name: docker build
   #           command: |
-  #             echo "[$(date))] 部署"
-  #             docker run -d --name idp_backend -p registry.idp.example.com/idp/backend:test-pipeline
-
+  #             docker --version
+  #             docker info
+  #             docker buildx version
+  #             pwd
+  #             ls -al $RUNNER_WORKSPACE
+  #             docker buildx build -t registry.idp.example.com/idp/backend:test-pipeline .
 

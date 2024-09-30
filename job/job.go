@@ -80,8 +80,9 @@ func (j *Job) Setup(id string, opts ...*Job) error {
 		err := s.Setup(fmt.Sprintf("%s.%d", j.State.ID, index), &step.Step{
 			Workdir: j.Workdir,
 			//
-			Image:       j.Image,
 			Environment: j.Environment,
+			//
+			Image: j.Image,
 		})
 		if err != nil {
 			return err

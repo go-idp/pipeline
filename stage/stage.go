@@ -81,8 +81,9 @@ func (s *Stage) Setup(id string, opts ...*Stage) error {
 		err := j.Setup(fmt.Sprintf("%s.%d", s.State.ID, index), &job.Job{
 			Workdir: s.Workdir,
 			//
-			Image:       s.Image,
 			Environment: s.Environment,
+			//
+			Image: s.Image,
 		})
 		if err != nil {
 			return err
