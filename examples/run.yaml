@@ -1,4 +1,4 @@
-name: release docker
+name: examples/run
 
 environment:
   CI: "true"

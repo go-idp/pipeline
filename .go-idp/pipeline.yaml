@@ -1,4 +1,4 @@
-name: release docker
+name: ci
 
 environment:
   CI: "true"
@@ -49,8 +49,10 @@ stages:
 
           - name: examples/github.yaml
             command: |
-              ./pipeline run \
+              WORKDIR=/tmp/go-idp/pipeline
+              mkdir -p $WORKDIR && ./pipeline run \
                 -c $PWD/examples/github.yaml \
+                -w $WORKDIR \
                 --allow-env GITHUB_TOKEN \
                 --allow-env GITHUB_REF_NAME \
                 --allow-env GITHUB_SERVER_URL \
