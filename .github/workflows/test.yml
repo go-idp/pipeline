@@ -1,0 +1,34 @@
+name: test
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: whatwewant/go-idp-pipeline:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # - name: Set up Go
+      #   uses: zmicro-design/action-setup-go@v1
+      #   with:
+      #     go-version: v1.22.1
+
+      - name: Install Docker Buildx
+        run: zmicro package install docker-buildx
+
+      - name: Run
+        run: |
+          LOG_LEVEL=debug pipeline run \
+            --allow-env GITHUB_TOKEN \
+            --allow-env GITHUB_REF_NAME \
+            --allow-env GITHUB_SERVER_URL \
+            --allow-env GITHUB_REPOSITORY
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

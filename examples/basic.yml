@@ -1,0 +1,48 @@
+name: Build Zmicro Docker Image
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+  EUNOMIA_CI: "true"
+  EUNOMIA_GIT_BRANCH: master
+  EUNOMIA_GIT_REPOSITORY: https://github.com/go-idp/pipeline
+  EUNOMIA_NAME: "Build Zmicro Docker Image"
+  EUNOMIA_RUNNER_ARCH: amd64
+  EUNOMIA_RUNNER_NAME: Eunomia CI
+  EUNOMIA_RUNNER_OS: Linux
+  EUNOMIA_RUNNER_PLATFORM: linux
+  EUNOMIA_RUNNER_USER: runner
+
+stages:
+  - name: checkout
+    jobs:
+      - name: frontend
+        steps:
+          - name: checkout
+            command: |
+              set -x
+              echo "[$(date))] 检出 (DIR: $PWD)"
+              git clone --progress --depth 1 -b ${EUNOMIA_GIT_BRANCH} ${EUNOMIA_GIT_REPOSITORY} $PWD
+              
+  - name: build
+    jobs:
+      - name: 构建
+        steps:
+          - name: build
+            command: |
+              docker buildx build --push -t registry.idp.example.com/idp/backend:test-pipeline .
+
+  - name: deploy
+    type: deploy
+    mode: serial 
+    title: 部署
+    jobs:
+      - name: 部署
+        steps:
+          - name: 部署
+            command: |
+              echo "[$(date))] 部署"
+              docker run -d --name idp_backend -p registry.idp.example.com/idp/backend:test-pipeline
+
+

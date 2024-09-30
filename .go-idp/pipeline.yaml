@@ -1,0 +1,52 @@
+name: release docker
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+  EUNOMIA_CI: "true"
+  EUNOMIA_GIT_BRANCH: master
+  EUNOMIA_GIT_REPOSITORY: https://github.com/go-idp/pipeline
+  EUNOMIA_RUNNER_ARCH: amd64
+  EUNOMIA_RUNNER_NAME: IDP CI
+  EUNOMIA_RUNNER_OS: Linux
+  EUNOMIA_RUNNER_PLATFORM: linux
+  EUNOMIA_RUNNER_USER: runner
+
+stages:
+  - name: checkout
+    jobs:
+      - name: frontend
+        steps:
+          - name: checkout
+            command: |
+              # set -x
+              echo "[$(date))] 认证 ($GITHUB_SERVER_URL)"
+              git config --global http.${GITHUB_SERVER_URL}.extraheader "AUTHORIZATION: basic "$(echo -n "x-access-token:${GITHUB_TOKEN}" | base64)
+              echo "[$(date))] 检出 (REPO: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}, DIR: $PWD)"
+              git clone --progress --depth 1 -b ${GITHUB_REF_NAME} ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY} $PWD
+              
+  - name: build
+    jobs:
+      - name: 构建
+        steps:
+          - name: build
+            command: |
+              docker --version
+              docker info
+              docker buildx version
+              docker buildx build -t registry.idp.example.com/idp/backend:test-pipeline .
+
+  # - name: deploy
+  #   type: deploy
+  #   mode: serial 
+  #   title: 部署
+  #   jobs:
+  #     - name: 部署
+  #       steps:
+  #         - name: 部署
+  #           command: |
+  #             echo "[$(date))] 部署"
+  #             docker run -d --name idp_backend -p registry.idp.example.com/idp/backend:test-pipeline
+
+
