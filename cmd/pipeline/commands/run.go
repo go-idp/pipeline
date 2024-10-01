@@ -48,6 +48,13 @@ func RegisterRun(app *cli.MultipleProgram) {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
+			fmt.Fprintf(os.Stdout, `
+  _____       _______  ___    ___  _          ___         
+ / ___/__    /  _/ _ \/ _ \  / _ \(_)__  ___ / (_)__  ___ 
+/ (_ / _ \  _/ // // / ___/ / ___/ / _ \/ -_) / / _ \/ -_)
+\___/\___/ /___/____/_/    /_/  /_/ .__/\__/_/_/_//_/\__/ 
+                                 /_/                      v%s
+`+"\n\n", pipeline.Version)
 			config := ctx.String("config")
 			if config == "" {
 				return fmt.Errorf("config is required")
