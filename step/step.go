@@ -14,7 +14,8 @@ import (
 )
 
 type Step struct {
-	Name        string            `json:"name" yaml:"name"`
+	Name string `json:"name" yaml:"name"`
+	//
 	Command     string            `json:"command" yaml:"command"`
 	Environment map[string]string `json:"environment" yaml:"environment"`
 	//
@@ -23,6 +24,8 @@ type Step struct {
 	Agent string `json:"agent" yaml:"agent"`
 	//
 	Image string `json:"image" yaml:"image"`
+	//
+	Shell string `json:"shell" yaml:"shell"`
 	//
 	State *State `json:"state" yaml:"state"`
 	//
@@ -114,11 +117,12 @@ func (s *Step) Run(ctx context.Context) error {
 		Command:     s.Command,
 		Environment: s.Environment,
 		//
+		WorkDir: s.Workdir,
+		//
 		Image:  s.Image,
 		Engine: engine,
 		//
-		WorkDir: s.Workdir,
-		//
+		Shell: s.Shell,
 		// IsInheritEnvironmentEnabled: true,
 		Server:       agentServer,
 		ClientID:     agentUsername,
