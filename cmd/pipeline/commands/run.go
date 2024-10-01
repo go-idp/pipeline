@@ -90,10 +90,12 @@ func RegisterRun(app *cli.MultipleProgram) {
 				p.SetWorkdir(workdir)
 			}
 
-			for _, key := range ctx.StringSlice("allow-env") {
-				if _, ok := p.Environment[key]; !ok {
-					p.Environment[key] = os.Getenv(key)
+			if len(ctx.StringSlice("allow-env")) != 0 {
+				environment := map[string]string{}
+				for _, key := range ctx.StringSlice("allow-env") {
+					environment[key] = os.Getenv(key)
 				}
+				p.SetEnvironment(environment)
 			}
 
 			if ctx.Bool("allow-all-env") {
