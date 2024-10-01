@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/go-idp/pipeline/stage"
@@ -71,7 +72,13 @@ func (p *Pipeline) prepare(id string) error {
 	if p.Environment == nil {
 		p.Environment = make(map[string]string)
 	}
-	p.Environment["PIPELINE_VERSION"] = Version
+	p.Environment["PIPELINE_RUNNER"] = "pipeline"
+	p.Environment["PIPELINE_RUNNER_OS"] = runtime.GOOS
+	p.Environment["PIPELINE_RUNNER_ARCH"] = runtime.GOARCH
+	p.Environment["PIPELINE_RUNNER_VERSION"] = Version
+	p.Environment["PIPELINE_RUNNER_USER"] = os.Getenv("USER")
+	p.Environment["PIPELINE_RUNNER_WORKDIR"] = fs.CurrentDir()
+	//
 	p.Environment["PIPELINE_NAME"] = p.Name
 	p.Environment["PIPELINE_WORKDIR"] = p.Workdir
 
