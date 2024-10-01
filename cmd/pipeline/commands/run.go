@@ -36,6 +36,12 @@ func RegisterRun(app *cli.MultipleProgram) {
 				Usage:   "Specifies the workdir",
 				EnvVars: []string{"PIPELINE_WORKDIR"},
 			},
+			&cli.StringFlag{
+				Name:    "image",
+				Aliases: []string{"i"},
+				Usage:   "Specifies the image",
+				EnvVars: []string{"PIPELINE_IMAGE"},
+			},
 			&cli.StringSliceFlag{
 				Name:    "allow-env",
 				Usage:   "Specifies the allowed environment variables",
@@ -96,6 +102,10 @@ func RegisterRun(app *cli.MultipleProgram) {
 					environment[key] = os.Getenv(key)
 				}
 				p.SetEnvironment(environment)
+			}
+
+			if image := ctx.String("image"); image != "" {
+				p.SetImage(image)
 			}
 
 			if ctx.Bool("allow-all-env") {
