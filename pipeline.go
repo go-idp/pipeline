@@ -71,6 +71,11 @@ func (p *Pipeline) prepare(id string) error {
 
 	if p.Environment == nil {
 		p.Environment = make(map[string]string)
+	} else {
+		// avoid nested pipeline
+		if _, ok := p.Environment["PIPELINE_RUNNER"]; ok {
+			return fmt.Errorf("[workflow][prepare] you are already in a pipeline, nested pipeline is not allowed")
+		}
 	}
 	p.Environment["PIPELINE_RUNNER"] = "pipeline"
 	p.Environment["PIPELINE_RUNNER_OS"] = runtime.GOOS
