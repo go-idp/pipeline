@@ -43,8 +43,14 @@ func RegisterRun(app *cli.MultipleProgram) {
 				EnvVars: []string{"PIPELINE_IMAGE"},
 			},
 			&cli.StringSliceFlag{
+				Name:    "env",
+				Aliases: []string{"e"},
+				Usage:   "Specifies the environment, example: KEY=VALUE",
+				EnvVars: []string{"ENV"},
+			},
+			&cli.StringSliceFlag{
 				Name:    "allow-env",
-				Usage:   "Specifies the allowed environment variables",
+				Usage:   "Specifies the allowed environment variables, example: GITHUB_CI",
 				EnvVars: []string{"ALLOW_ENV"},
 			},
 			&cli.BoolFlag{
@@ -96,27 +102,33 @@ func RegisterRun(app *cli.MultipleProgram) {
 				p.SetWorkdir(workdir)
 			}
 
-			if len(ctx.StringSlice("allow-env")) != 0 {
-				environment := map[string]string{}
-				for _, key := range ctx.StringSlice("allow-env") {
-					environment[key] = os.Getenv(key)
-				}
-				p.SetEnvironment(environment)
-			}
-
 			if image := ctx.String("image"); image != "" {
 				p.SetImage(image)
 			}
 
+			environment := map[string]string{}
+			for _, key := range ctx.StringSlice("allow-env") {
+				environment[key] = os.Getenv(key)
+			}
+
 			if ctx.Bool("allow-all-env") {
-				for _, key := range os.Environ() {
-					kv := strings.Split(key, "=")
+				for _, e := range os.Environ() {
+					kv := strings.Split(e, "=")
 					if len(kv) >= 1 {
-						if _, ok := p.Environment[kv[0]]; !ok {
-							p.Environment[kv[0]] = kv[1]
-						}
+						environment[kv[0]] = kv[1]
 					}
 				}
+			}
+
+			for _, e := range ctx.StringSlice("env") {
+				kv := strings.Split(e, "=")
+				if len(kv) >= 1 {
+					environment[kv[0]] = kv[1]
+				}
+			}
+
+			if len(environment) > 0 {
+				p.SetEnvironment(environment)
 			}
 
 			if debug.IsDebugMode() {
