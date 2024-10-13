@@ -38,6 +38,12 @@ type Pipeline struct {
 	stderr io.Writer
 }
 
+type RunConfig struct {
+	ID string
+}
+
+type RunOption func(cfg *RunConfig)
+
 func (p *Pipeline) getLogger() *logger.Logger {
 	l := logger.New()
 	l.SetStdout(p.stdout)
@@ -192,16 +198,19 @@ func (p *Pipeline) clean() error {
 	return nil
 }
 
-func (p *Pipeline) Run(ctx context.Context, id ...string) error {
+func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
+	cfg := &RunConfig{
+		ID: uuid.V4(),
+	}
+	for _, o := range opts {
+		o(cfg)
+	}
+
 	//
 	logger.Infof("[workflow] start to run (name: %s)", p.Name)
 	defer logger.Infof("[workflow] done to run (name: %s, workdir: %s)", p.Name, p.Workdir)
 
-	_id := uuid.V4()
-	if len(id) > 0 {
-		_id = id[0]
-	}
-	if err := p.prepare(_id); err != nil {
+	if err := p.prepare(cfg.ID); err != nil {
 		return err
 	}
 	defer p.clean()

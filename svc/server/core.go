@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go-idp/pipeline"
 	"github.com/go-idp/pipeline/svc/action"
 	"github.com/go-zoox/core-utils/io"
 	"github.com/go-zoox/debug"
@@ -134,7 +135,10 @@ func Mount(app *zoox.Application, opts ...func(opt *MountOption)) error {
 				pl.SetStdout(log)
 
 				// started
-				if err := pl.Run(conn.Context(), conn.ID()); err != nil {
+				err := pl.Run(conn.Context(), func(cfg *pipeline.RunConfig) {
+					cfg.ID = conn.ID()
+				})
+				if err != nil {
 					sendError(fmt.Errorf("failed to run pipeline: %s", err))
 					return
 				}
