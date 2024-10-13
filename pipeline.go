@@ -208,7 +208,9 @@ func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
 
 	//
 	logger.Infof("[workflow] start to run (name: %s)", p.Name)
-	defer logger.Infof("[workflow] done to run (name: %s, workdir: %s)", p.Name, p.Workdir)
+	defer func() {
+		logger.Infof("[workflow] done to run (name: %s, workdir: %s)", p.Name, p.Workdir)
+	}()
 
 	if err := p.prepare(cfg.ID); err != nil {
 		return err
