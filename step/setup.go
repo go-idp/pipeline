@@ -1,8 +1,11 @@
 package step
 
 import (
+	"fmt"
 	"os"
 	"time"
+
+	"github.com/go-zoox/core-utils/strings"
 )
 
 // Setup sets up the step
@@ -35,6 +38,25 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 					s.Environment[k] = v
 				}
 			}
+		}
+	}
+
+	if s.Plugin != nil {
+		// s.logger.Infof("[workflow][plugin] use %s in step(%s)", s.Plugin.Image, s.Name)
+
+		if s.Plugin.Entrypoint == "" {
+			s.Plugin.Entrypoint = "/pipeline/plugin/run"
+		}
+
+		s.Image = s.Plugin.Image
+
+		// Check if /pipeline/plugin/run exists, if not, return an error
+		s.Command = fmt.Sprintf(`if [ ! -f "%s" ]; then echo -e "\033[0;31merror: it is not a pipeline plugin (%s not found)\033[0m"; exit 127; fi`, s.Plugin.Entrypoint, s.Plugin.Entrypoint)
+
+		// Settings are passed as environment variables
+		// e.g. {"key": "value" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=value
+		for k, v := range s.Plugin.Settings {
+			s.Environment["PIPELINE_PLUGIN_SETTINGS_"+strings.UpperCase(k)] = v
 		}
 	}
 

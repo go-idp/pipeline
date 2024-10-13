@@ -33,6 +33,10 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 	s.logger.Infof("%s[step(%d/%d): %s] start", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 	defer s.logger.Infof("%s[step(%d/%d): %s] done", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 
+	if s.Plugin != nil {
+		s.logger.Infof("%s[step(%d/%d): %s] use plugin => %s", cfg.Parent, cfg.Current, cfg.Total, s.Name, s.Plugin.Image)
+	}
+
 	if s.State == nil {
 		return fmt.Errorf("you should setup before run")
 	}
