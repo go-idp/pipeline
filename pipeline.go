@@ -185,7 +185,7 @@ func (p *Pipeline) clean() error {
 func (p *Pipeline) Run(ctx context.Context, id ...string) error {
 	//
 	logger.Infof("[workflow] start to run (name: %s)", p.Name)
-	defer logger.Infof("[workflow] done to run (name: %s)", p.Name)
+	defer logger.Infof("[workflow] done to run (name: %s, workdir: %s)", p.Name, p.Workdir)
 
 	_id := uuid.V4()
 	if len(id) > 0 {
