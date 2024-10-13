@@ -35,6 +35,15 @@ type Step struct {
 	logger *logger.Logger
 }
 
+type RunConfig struct {
+	Total   int
+	Current int
+	//
+	Parent string
+}
+
+type RunOption func(cfg *RunConfig)
+
 func (s *Step) getLogger() *logger.Logger {
 	l := logger.New()
 	l.SetStdout(s.stdout)
@@ -83,9 +92,14 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 	return nil
 }
 
-func (s *Step) Run(ctx context.Context) error {
-	s.logger.Infof("[step: %s] start", s.Name)
-	defer s.logger.Infof("[step: %s] done", s.Name)
+func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
+	cfg := &RunConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+
+	s.logger.Infof("%s[step(%d/%d): %s] start", cfg.Parent, cfg.Current, cfg.Total, s.Name)
+	defer s.logger.Infof("%s[step(%d/%d): %s] done", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 
 	if s.State == nil {
 		return fmt.Errorf("you should setup before run")

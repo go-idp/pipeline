@@ -213,8 +213,13 @@ func (p *Pipeline) Run(ctx context.Context, id ...string) error {
 	plog.Infof("[workflow] workdir: %s", p.Workdir)
 	defer plog.Infof("[workflow] done")
 
-	for _, stage := range p.Stages {
-		if err := stage.Run(ctx); err != nil {
+	for i, s := range p.Stages {
+		err := s.Run(ctx, func(cfg *stage.RunConfig) {
+			cfg.Total = len(p.Stages)
+			cfg.Current = i + 1
+		})
+
+		if err != nil {
 			p.State.Status = "failed"
 			p.State.Error = err.Error()
 			p.State.FailedAt = time.Now()

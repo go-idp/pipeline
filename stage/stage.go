@@ -29,6 +29,15 @@ type Stage struct {
 	logger *logger.Logger
 }
 
+type RunConfig struct {
+	Total   int
+	Current int
+	//
+	Parent string
+}
+
+type RunOption func(cfg *RunConfig)
+
 func (s *Stage) getLogger() *logger.Logger {
 	l := logger.New()
 	l.SetStdout(s.stdout)
@@ -94,15 +103,24 @@ func (s *Stage) Setup(id string, opts ...*Stage) error {
 }
 
 // Run runs jobs in parallel
-func (s *Stage) Run(ctx context.Context) error {
-	s.logger.Infof("[stage: %s] start", s.Name)
-	defer s.logger.Infof("[stage: %s] done", s.Name)
+func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
+	cfg := &RunConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+
+	s.logger.Infof("%s[stage(%d/%d): %s] start", cfg.Parent, cfg.Current, cfg.Total, s.Name)
+	defer s.logger.Infof("%s[stage(%d/%d): %s] done", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 
 	g, ctx := errgroup.WithContext(ctx)
 
-	for _, job := range s.Jobs {
+	for i, j := range s.Jobs {
 		g.Go(func() error {
-			return job.Run(ctx)
+			return j.Run(ctx, func(c *job.RunConfig) {
+				c.Total = len(s.Jobs)
+				c.Current = i + 1
+				c.Parent = fmt.Sprintf("%s[stage(%d/%d): %s]", cfg.Parent, cfg.Current, cfg.Total, s.Name)
+			})
 		})
 	}
 
