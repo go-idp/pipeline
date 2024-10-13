@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +14,6 @@ import (
 	"github.com/go-zoox/fs"
 	"github.com/go-zoox/logger"
 	"github.com/go-zoox/safe"
-	"github.com/go-zoox/uuid"
 )
 
 type Pipeline struct {
@@ -198,52 +196,7 @@ func (p *Pipeline) clean() error {
 	return nil
 }
 
-func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
-	cfg := &RunConfig{
-		ID: uuid.V4(),
-	}
-	for _, o := range opts {
-		o(cfg)
-	}
-
-	//
-	logger.Infof("[workflow] start to run (name: %s)", p.Name)
-	defer func() {
-		logger.Infof("[workflow] done to run (name: %s, workdir: %s)", p.Name, p.Workdir)
-	}()
-
-	if err := p.prepare(cfg.ID); err != nil {
-		return err
-	}
-	defer p.clean()
-
-	plog := p.getLogger()
-	plog.Infof("[workflow] start")
-	plog.Infof("[workflow] version: %s", Version)
-	plog.Infof("[workflow] name: %s", p.Name)
-	plog.Infof("[workflow] workdir: %s", p.Workdir)
-	defer plog.Infof("[workflow] done")
-
-	for i, s := range p.Stages {
-		err := s.Run(ctx, func(cfg *stage.RunConfig) {
-			cfg.Total = len(p.Stages)
-			cfg.Current = i + 1
-		})
-
-		if err != nil {
-			p.State.Status = "failed"
-			p.State.Error = err.Error()
-			p.State.FailedAt = time.Now()
-			return err
-		}
-	}
-
-	p.State.Status = "succeeded"
-	p.State.SucceedAt = time.Now()
-
-	return nil
-}
-
+// String returns the string representation of the pipeline
 func (p *Pipeline) String() string {
 	v, err := yaml.Encode(p)
 	if err != nil {
@@ -253,11 +206,13 @@ func (p *Pipeline) String() string {
 	return string(v)
 }
 
+// SetWorkdir sets the workdir of the pipeline
 func (p *Pipeline) SetWorkdir(workdir string) *Pipeline {
 	p.Workdir = workdir
 	return p
 }
 
+// SetEnvironment sets the environment of the pipeline
 func (p *Pipeline) SetEnvironment(environment map[string]string) *Pipeline {
 	if p.Environment == nil {
 		p.Environment = make(map[string]string)
@@ -272,11 +227,13 @@ func (p *Pipeline) SetEnvironment(environment map[string]string) *Pipeline {
 	return p
 }
 
+// SetImage sets the image of the pipeline
 func (p *Pipeline) SetImage(image string) *Pipeline {
 	p.Image = image
 	return p
 }
 
+// SetStdout sets the stdout of the pipeline
 func (p *Pipeline) SetStdout(stdout io.Writer) *Pipeline {
 	p.stdout = stdout
 
@@ -287,6 +244,7 @@ func (p *Pipeline) SetStdout(stdout io.Writer) *Pipeline {
 	return p
 }
 
+// SetStderr sets the stderr of the pipeline
 func (p *Pipeline) SetStderr(stderr io.Writer) *Pipeline {
 	p.stderr = stderr
 
