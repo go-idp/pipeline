@@ -13,6 +13,12 @@ environment:
   EUNOMIA_RUNNER_PLATFORM: linux
   EUNOMIA_RUNNER_USER: runner
 
+pre: |
+  echo "create work dir"
+
+post: |
+  echo "clean work dir"
+
 stages:
   # - name: checkout
   #   jobs:

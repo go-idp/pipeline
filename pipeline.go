@@ -8,7 +8,9 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/go-idp/pipeline/job"
 	"github.com/go-idp/pipeline/stage"
+	"github.com/go-idp/pipeline/step"
 	"github.com/go-zoox/encoding/yaml"
 	"github.com/go-zoox/fs"
 	"github.com/go-zoox/logger"
@@ -27,6 +29,9 @@ type Pipeline struct {
 	Image string `json:"image" yaml:"image"`
 	//
 	State *State `json:"state" yaml:"state"`
+	//
+	Pre  string `json:"pre" yaml:"pre"`
+	Post string `json:"post" yaml:"post"`
 	//
 	stdout io.Writer
 	stderr io.Writer
@@ -91,6 +96,43 @@ func (p *Pipeline) prepare(id string) error {
 		return fmt.Errorf("[workflow][prepare] no stages found, stages is required")
 	}
 
+	// add pre/post stage
+	if p.Pre != "" {
+		p.Stages = append([]*stage.Stage{
+			{
+				Name: "pre",
+				Jobs: []*job.Job{
+					{
+						Name: "pre",
+						Steps: []*step.Step{
+							{
+								Name:    "pre",
+								Command: p.Pre,
+							},
+						},
+					},
+				},
+			},
+		}, p.Stages...)
+	}
+	if p.Post != "" {
+		p.Stages = append(p.Stages, &stage.Stage{
+			Name: "post",
+			Jobs: []*job.Job{
+				{
+					Name: "post",
+					Steps: []*step.Step{
+						{
+							Name:    "post",
+							Command: p.Post,
+						},
+					},
+				},
+			},
+		})
+	}
+
+	// setup state
 	p.State = &State{
 		ID:     id,
 		Status: "running",
