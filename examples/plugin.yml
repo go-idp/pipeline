@@ -21,13 +21,18 @@ stages:
         steps:
           - name: checkout
             plugin: 
-              # image: pipeline/build:v1 # call cmd => /pipeline/plugin/run
+              # image: pipeline/checkout:v1 # call cmd => /pipeline/plugin/run
+              # settings:
+              #   username: "username"
+              #   token: "token"
+              #   repository: ${EUNOMIA_GIT_REPOSITORY}
               image: docker.io/library/busybox:latest
               settings:
-                context: . # PIPELINE_PLUGIN_SETTINGS_CONTEXT
-                tags: registry.idp.example.com/idp/backend:test-pipeline
-              entrypoint: /bin/date
-
+                username: "test"
+                token: "test"
+                repository: https://github.com/go-idp/pipeline
+              # entrypoint: /bin/date
+              entrypoint: /bin/env
               
   - name: build
     jobs:

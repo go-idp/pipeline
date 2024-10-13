@@ -51,12 +51,29 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		s.Image = s.Plugin.Image
 
 		// Check if /pipeline/plugin/run exists, if not, return an error
-		s.Command = fmt.Sprintf(`if [ ! -f "%s" ]; then echo -e "\033[0;31merror: it is not a pipeline plugin (%s not found)\033[0m"; exit 127; fi`, s.Plugin.Entrypoint, s.Plugin.Entrypoint)
+		s.Command = fmt.Sprintf(
+			`if [ ! -f "%s" ]; then echo -e "\033[0;31merror: it is not a pipeline plugin (%s not found)\033[0m"; exit 127; fi; %s`,
+			s.Plugin.Entrypoint,
+			s.Plugin.Entrypoint,
+			s.Plugin.Entrypoint,
+		)
 
 		// Settings are passed as environment variables
+		// will reset the environment
 		// e.g. {"key": "value" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=value
+		//  value support environment variables, e.g. {"key": "${ENV}" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=${ENV}
+		originEnv := s.Environment
+		s.Environment = make(map[string]string)
 		for k, v := range s.Plugin.Settings {
-			s.Environment["PIPELINE_PLUGIN_SETTINGS_"+strings.UpperCase(k)] = v
+			// if value is environment variable, replace it
+			if strings.HasPrefix(v, "${") && strings.HasSuffix(v, "}") {
+				key := strings.TrimPrefix(strings.TrimSuffix(v, "}"), "${")
+				if val, ok := originEnv[key]; ok {
+					s.Environment["PIPELINE_PLUGIN_SETTINGS_"+strings.UpperCase(k)] = val
+				}
+			} else {
+				s.Environment["PIPELINE_PLUGIN_SETTINGS_"+strings.UpperCase(k)] = v
+			}
 		}
 	}
 
