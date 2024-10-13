@@ -14,6 +14,7 @@ import (
 	"github.com/go-zoox/encoding/yaml"
 	"github.com/go-zoox/fs"
 	"github.com/go-zoox/logger"
+	"github.com/go-zoox/safe"
 	"github.com/go-zoox/uuid"
 )
 
@@ -162,6 +163,15 @@ func (p *Pipeline) clean() error {
 	defer logger.Infof("[workflow][clean] done")
 
 	if p.Workdir == "" {
+		return nil
+	}
+
+	// fix: if workdir is removed, fs.CurrentDir() panic => cannot get current dir with os.Getwd(): getwd: no such file or directory
+	err := safe.Do(func() error {
+		fs.CurrentDir()
+		return nil
+	})
+	if err != nil {
 		return nil
 	}
 
