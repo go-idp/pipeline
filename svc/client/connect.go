@@ -21,6 +21,11 @@ func (c *client) Connect() error {
 	if err != nil {
 		return fmt.Errorf("invalid caas server address: %s", err)
 	}
+
+	if c.cfg.Path != "" {
+		u.Path = c.cfg.Path
+	}
+
 	logger.Debugf("connecting to %s", u.String())
 
 	if u.User != nil {

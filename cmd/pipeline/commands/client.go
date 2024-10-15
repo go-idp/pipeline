@@ -40,6 +40,13 @@ func RegisterClient(app *cli.MultipleProgram) {
 				Usage:   "Specifies the password",
 				EnvVars: []string{"PASSWORD"},
 			},
+			&cli.StringFlag{
+				Name: "path",
+				// Aliases: []string{"p"},
+				Usage:   "Specifies the path",
+				EnvVars: []string{"SERVER_PATH"},
+				Value:   "/",
+			},
 		},
 		Action: func(ctx *cli.Context) error {
 			pipeline := pipeline.Pipeline{}
@@ -55,6 +62,7 @@ func RegisterClient(app *cli.MultipleProgram) {
 				Server:   ctx.String("server"),
 				Username: ctx.String("username"),
 				Password: ctx.String("password"),
+				Path:     ctx.String("path"),
 			}
 
 			s := client.New(cfg)
