@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-idp/pipeline"
+	"github.com/go-zoox/chalk"
 	"github.com/go-zoox/fs"
 	"github.com/go-zoox/zoox"
 
@@ -25,7 +26,7 @@ func (s *server) Run() error {
 / (_ / _ \  _/ // // / ___/ / ___/ / _ \/ -_) / / _ \/ -_)
 \___/\___/ /___/____/_/    /_/  /_/ .__/\__/_/_/_//_/\__/ 
                                  /_/                      v%s
-`, pipeline.Version))
+`, chalk.Green(pipeline.Version)))
 
 	if s.cfg.Username != "" || s.cfg.Password != "" {
 		app.Use(func(ctx *zoox.Context) {
