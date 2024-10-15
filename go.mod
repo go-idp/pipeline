@@ -3,6 +3,7 @@ module github.com/go-idp/pipeline
 go 1.22.1
 
 require (
+	github.com/go-zoox/chalk v1.0.2
 	github.com/go-zoox/cli v1.4.0
 	github.com/go-zoox/command v1.7.0
 	github.com/go-zoox/core-utils v1.4.11
@@ -14,7 +15,7 @@ require (
 	github.com/go-zoox/safe v1.2.0
 	github.com/go-zoox/uuid v0.0.1
 	github.com/go-zoox/websocket v1.3.5
-	github.com/go-zoox/zoox v1.15.15
+	github.com/go-zoox/zoox v1.15.17
 	golang.org/x/sync v0.8.0
 )
 
@@ -42,7 +43,6 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-zoox/cache v1.0.7 // indirect
-	github.com/go-zoox/chalk v1.0.2 // indirect
 	github.com/go-zoox/commands-as-a-service v1.7.11 // indirect
 	github.com/go-zoox/compress v1.0.1 // indirect
 	github.com/go-zoox/concurrency v1.2.0 // indirect
