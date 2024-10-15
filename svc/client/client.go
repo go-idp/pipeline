@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/go-idp/pipeline"
 	"github.com/go-zoox/websocket"
@@ -12,6 +13,9 @@ type Client interface {
 	Close() error
 	//
 	Run(*pipeline.Pipeline) error
+	//
+	SetStdout(stdout io.Writer)
+	SetStderr(stderr io.Writer)
 }
 
 type client struct {
@@ -20,6 +24,9 @@ type client struct {
 	core websocket.Client
 
 	done chan error
+
+	stdout io.Writer
+	stderr io.Writer
 }
 
 type ExitError struct {
@@ -37,4 +44,16 @@ func New(cfg *Config) Client {
 		//
 		done: make(chan error),
 	}
+}
+
+func (c *client) SetStdout(stdout io.Writer) {
+	c.stdout = stdout
+
+	if c.stderr == nil {
+		c.stderr = stdout
+	}
+}
+
+func (c *client) SetStderr(stderr io.Writer) {
+	c.stderr = stderr
 }

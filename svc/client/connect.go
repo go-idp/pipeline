@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/go-idp/pipeline/svc/action"
@@ -96,9 +95,9 @@ func (c *client) Connect() error {
 				return nil
 			}
 
-			os.Stdout.Write(log)
+			c.stdout.Write(log)
 		default:
-			os.Stderr.Write([]byte(fmt.Sprintf("unknown message type: %v\n", act.Type)))
+			c.stderr.Write([]byte(fmt.Sprintf("unknown message type: %v\n", act.Type)))
 		}
 
 		return nil
