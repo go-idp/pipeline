@@ -46,7 +46,7 @@ func (s *server) Run() error {
 		})
 	}
 
-	err := Mount(app, func(opt *MountOption) {
+	err := Mount(app, func(opt *MountConfig) {
 		opt.Path = s.cfg.Path
 		opt.Workdir = s.cfg.Workdir
 		opt.Environment = s.cfg.Environment

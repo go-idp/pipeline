@@ -14,7 +14,7 @@ import (
 	"github.com/go-zoox/zoox"
 )
 
-type MountOption struct {
+type MountConfig struct {
 	Path string
 	//
 	Workdir string
@@ -22,15 +22,17 @@ type MountOption struct {
 	Environment map[string]string
 }
 
-func Mount(app *zoox.Application, opts ...func(opt *MountOption)) error {
-	opt := MountOption{
+type MountOption func(cfg *MountConfig)
+
+func Mount(app *zoox.Application, opts ...MountOption) error {
+	cfg := MountConfig{
 		Path: "/",
 	}
 	for _, o := range opts {
-		o(&opt)
+		o(&cfg)
 	}
 
-	server, err := app.WebSocket(opt.Path)
+	server, err := app.WebSocket(cfg.Path)
 	if err != nil {
 		return err
 	}
@@ -128,9 +130,9 @@ func Mount(app *zoox.Application, opts ...func(opt *MountOption)) error {
 				// })
 
 				// pl.Workdir = fmt.Sprintf("%s/%s", s.cfg.Workdir, conn.ID())
-				pl.SetWorkdir(fmt.Sprintf("%s/%s", opt.Workdir, conn.ID()))
+				pl.SetWorkdir(fmt.Sprintf("%s/%s", cfg.Workdir, conn.ID()))
 				//
-				pl.SetEnvironment(opt.Environment)
+				pl.SetEnvironment(cfg.Environment)
 				//
 				pl.SetStdout(log)
 
