@@ -35,7 +35,7 @@ func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
 	// job run mode
 	//	serial: run jobs in serial => one by one
 	//	parallel: run jobs in parallel => all at once
-	if s.RunMode == "serial" {
+	if s.RunMode == RunModeSerial {
 		// serial
 		s.logger.Infof("%s[stage(%d/%d): %s] run mode: serial", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 
