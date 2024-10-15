@@ -15,8 +15,8 @@ type Stage struct {
 	//
 	Image       string            `json:"image" yaml:"image"`
 	Environment map[string]string `json:"environment" yaml:"environment"`
-	// JobRunMode is the mode of the job, e.g. "serial", "parallel", default: parallel
-	JobRunMode string `json:"job_run_mode" yaml:"job_run_mode"`
+	// RunMode is the mode to run the jobs, e.g. "serial", "parallel", default: parallel
+	RunMode string `json:"run_mode" yaml:"run_mode"`
 	//
 	State *State `json:"state" yaml:"state"`
 	//
