@@ -32,23 +32,48 @@ func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
 	s.logger.Infof("%s[stage(%d/%d): %s] start", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 	defer s.logger.Infof("%s[stage(%d/%d): %s] done", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 
-	g, ctx := errgroup.WithContext(ctx)
+	// job run mode
+	//	serial: run jobs in serial => one by one
+	//	parallel: run jobs in parallel => all at once
+	if s.JobRunMode == "serial" {
+		// serial
+		s.logger.Infof("%s[stage(%d/%d): %s] run mode: serial", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 
-	for i, j := range s.Jobs {
-		g.Go(func() error {
-			return j.Run(ctx, func(c *job.RunConfig) {
+		for i, j := range s.Jobs {
+			err := j.Run(ctx, func(c *job.RunConfig) {
 				c.Total = len(s.Jobs)
 				c.Current = i + 1
 				c.Parent = fmt.Sprintf("%s[stage(%d/%d): %s]", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 			})
-		})
-	}
+			if err != nil {
+				s.State.Status = "failed"
+				s.State.Error = err.Error()
+				s.State.FailedAt = time.Now()
+				return err
+			}
+		}
+	} else {
+		// parallel
+		s.logger.Infof("%s[stage(%d/%d): %s] run mode: parallel", cfg.Parent, cfg.Current, cfg.Total, s.Name)
 
-	if err := g.Wait(); err != nil {
-		s.State.Status = "failed"
-		s.State.Error = err.Error()
-		s.State.FailedAt = time.Now()
-		return err
+		g, ctx := errgroup.WithContext(ctx)
+
+		for i, j := range s.Jobs {
+			g.Go(func() error {
+				return j.Run(ctx, func(c *job.RunConfig) {
+					c.Total = len(s.Jobs)
+					c.Current = i + 1
+					c.Parent = fmt.Sprintf("%s[stage(%d/%d): %s]", cfg.Parent, cfg.Current, cfg.Total, s.Name)
+				})
+			})
+		}
+
+		if err := g.Wait(); err != nil {
+			s.State.Status = "failed"
+			s.State.Error = err.Error()
+			s.State.FailedAt = time.Now()
+			return err
+		}
 	}
 
 	s.State.Status = "succeeded"
