@@ -41,27 +41,7 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 		return fmt.Errorf("you should setup before run")
 	}
 
-	engine := "host"
-	if s.Image != "" {
-		engine = "docker"
-	}
-
-	agentServer := "ws://192.168.31.246:8838"
-	agentUsername := ""
-	agentPassword := ""
-	if s.Agent != "" {
-		agentX, err := url.Parse(s.Agent)
-		if err != nil {
-			return fmt.Errorf("failed to parse agent: %s", err)
-		}
-
-		engine = agentX.Scheme
-		// agentServer = agentX.Host
-		agentUsername = agentX.User.Username()
-		agentPassword, _ = agentX.User.Password()
-	}
-
-	cmd, err := command.New(&config.Config{
+	ccfg := &config.Config{
 		Context: ctx,
 		//
 		Command:     s.Command,
@@ -69,15 +49,43 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 		//
 		WorkDir: s.Workdir,
 		//
-		Image:  s.Image,
-		Engine: engine,
+		Image: s.Image,
 		//
 		Shell: s.Shell,
-		// IsInheritEnvironmentEnabled: true,
-		Server:       agentServer,
-		ClientID:     agentUsername,
-		ClientSecret: agentPassword,
-	})
+	}
+
+	ccfg.Engine = "host"
+	if s.Image != "" {
+		ccfg.Engine = "docker"
+	}
+
+	if s.Engine != "" {
+		ccfg.Engine = s.Engine
+
+		//
+		agentX, err := url.Parse(s.Engine)
+		if err == nil {
+			ccfg.Engine = agentX.Scheme
+			ccfg.Server = agentX.Host
+			ccfg.ClientID = agentX.User.Username()
+			ccfg.ClientSecret, _ = agentX.User.Password()
+
+			// @TODO
+			switch ccfg.Engine {
+			case "host":
+			case "docker":
+			case "idp":
+				ccfg.Server = fmt.Sprintf("ws://%s", agentX.Host)
+			case "idps":
+				ccfg.Server = fmt.Sprintf("wss://%s", agentX.Host)
+				ccfg.Engine = "idp"
+			default:
+				return fmt.Errorf("unsupported engine: %s (uri: %s)", ccfg.Engine, s.Engine)
+			}
+		}
+	}
+
+	cmd, err := command.New(ccfg)
 	if err != nil {
 		return fmt.Errorf("failed to create command: %s", err)
 	}

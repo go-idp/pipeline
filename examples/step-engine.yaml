@@ -1,0 +1,12 @@
+name: examples/step-engine
+
+stages:
+  - name: build
+    jobs:
+      - name: 构建
+        steps:
+          - name: build
+            engine: idp://user:pass@10.0.0.2:8838
+            command: |
+              echo "[$(date))] build in agent"
+              hostname

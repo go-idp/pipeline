@@ -3,9 +3,10 @@ module github.com/go-idp/pipeline
 go 1.22.1
 
 require (
+	github.com/go-idp/agent v1.9.6
 	github.com/go-zoox/chalk v1.0.2
 	github.com/go-zoox/cli v1.4.0
-	github.com/go-zoox/command v1.7.0
+	github.com/go-zoox/command v1.8.2
 	github.com/go-zoox/core-utils v1.4.11
 	github.com/go-zoox/debug v1.0.5
 	github.com/go-zoox/encoding v1.2.1
@@ -35,7 +36,6 @@ require (
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.5 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -113,7 +113,6 @@ require (
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/grpc v1.64.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -122,3 +121,5 @@ require (
 // replace github.com/go-zoox/docker => ../docker
 
 // replace github.com/go-zoox/command => ../command
+
+// replace github.com/go-idp/agent => ../agent

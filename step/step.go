@@ -14,7 +14,7 @@ type Step struct {
 	//
 	Workdir string `json:"workdir" yaml:"workdir"`
 	//
-	Agent string `json:"agent" yaml:"agent"`
+	Engine string `json:"engine" yaml:"engine"`
 	//
 	Image string `json:"image" yaml:"image"`
 	//
