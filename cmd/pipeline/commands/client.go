@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/go-idp/pipeline"
 	"github.com/go-idp/pipeline/svc/client"
@@ -89,6 +90,9 @@ func RegisterClient(app *cli.MultipleProgram) {
 			}
 
 			s := client.New(cfg)
+
+			s.SetStdout(os.Stdout)
+			s.SetStdout(os.Stderr)
 
 			if err := s.Connect(); err != nil {
 				return err

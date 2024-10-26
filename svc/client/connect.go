@@ -88,14 +88,22 @@ func (c *client) Connect() error {
 			}
 
 			c.done <- done
-		case action.Log.Name():
-			log, err := action.Log.Decode([]byte(act.Payload))
+		case action.Stdout.Name():
+			log, err := action.Stdout.Decode([]byte(act.Payload))
 			if err != nil {
 				c.done <- fmt.Errorf("failed to decode log message: %s", err)
 				return nil
 			}
 
 			c.stdout.Write(log)
+		case action.Stderr.Name():
+			log, err := action.Stderr.Decode([]byte(act.Payload))
+			if err != nil {
+				c.done <- fmt.Errorf("failed to decode log message: %s", err)
+				return nil
+			}
+
+			c.stderr.Write(log)
 		default:
 			c.stderr.Write([]byte(fmt.Sprintf("unknown message type: %v\n", act.Type)))
 		}

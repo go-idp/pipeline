@@ -68,12 +68,26 @@ func Mount(app *zoox.Application, opts ...MountOption) error {
 			conn.WriteTextMessage(msg)
 		}
 
-		log := io.WriterWrapFunc(func(b []byte) (n int, err error) {
+		stdout := io.WriterWrapFunc(func(b []byte) (n int, err error) {
 			if debug.IsDebugMode() {
 				os.Stdout.Write(b)
 			}
 
-			msg, err := action.Log.Encode(b)
+			msg, err := action.Stdout.Encode(b)
+			if err != nil {
+				panic(fmt.Errorf("failed to encode error: %s", err))
+			}
+
+			conn.WriteTextMessage(msg)
+			return len(b), nil
+		})
+
+		stderr := io.WriterWrapFunc(func(b []byte) (n int, err error) {
+			if debug.IsDebugMode() {
+				os.Stderr.Write(b)
+			}
+
+			msg, err := action.Stderr.Encode(b)
 			if err != nil {
 				panic(fmt.Errorf("failed to encode error: %s", err))
 			}
@@ -134,7 +148,8 @@ func Mount(app *zoox.Application, opts ...MountOption) error {
 				//
 				pl.SetEnvironment(cfg.Environment)
 				//
-				pl.SetStdout(log)
+				pl.SetStdout(stdout)
+				pl.SetStderr(stderr)
 
 				// started
 				err := pl.Run(conn.Context(), func(cfg *pipeline.RunConfig) {

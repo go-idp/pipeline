@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 )
 
-const typeLog = "log"
+const typeStderr = "stderr"
 
-var Log = Create(
-	typeLog,
+var Stderr = Create(
+	typeStderr,
 	func(log []byte) ([]byte, error) {
 		act := Action{
-			Type:    typeLog,
+			Type:    typeStderr,
 			Payload: string(log),
 		}
 
