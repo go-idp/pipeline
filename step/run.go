@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-zoox/command"
 	"github.com/go-zoox/command/config"
+	"github.com/go-zoox/core-utils/strings"
+	"github.com/go-zoox/crypto/base64"
 )
 
 // RunConfig is the config for run
@@ -66,6 +68,7 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 		agentX, err := url.Parse(s.Engine)
 		if err == nil {
 			ccfg.Engine = agentX.Scheme
+
 			ccfg.Server = agentX.Host
 			ccfg.ClientID = agentX.User.Username()
 			ccfg.ClientSecret, _ = agentX.User.Password()
@@ -74,6 +77,20 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 			switch ccfg.Engine {
 			case "host":
 			case "docker":
+			case "ssh":
+				ccfg.SSHHost = agentX.Hostname()
+				ccfg.SSHPort = strings.MustToInt(agentX.Port())
+				ccfg.SSHUser = ccfg.ClientID
+				ccfg.SSHPass = ccfg.ClientSecret
+				ccfg.SSHIsIgnoreStrictHostKeyChecking = true
+
+				if ccfg.SSHUser == "private_key" {
+					if ccfg.SSHPass == "" {
+						return fmt.Errorf("private_key should be set for ssh engine, when user is private_key")
+					}
+
+					ccfg.SSHPrivateKey = base64.Decode(ccfg.SSHPass)
+				}
 			case "idp":
 				ccfg.Server = fmt.Sprintf("ws://%s", agentX.Host)
 			case "idps":
