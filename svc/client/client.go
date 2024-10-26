@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/go-idp/pipeline"
 	"github.com/go-zoox/websocket"
@@ -41,6 +42,9 @@ func (e *ExitError) Error() string {
 func New(cfg *Config) Client {
 	return &client{
 		cfg: cfg,
+		//
+		stdout: os.Stdout,
+		stderr: os.Stderr,
 		//
 		done: make(chan error),
 	}

@@ -6,7 +6,12 @@ import (
 	"github.com/go-idp/pipeline"
 	"github.com/go-idp/pipeline/svc/client"
 	"github.com/go-zoox/cli"
+	"github.com/go-zoox/core-utils/regexp"
+	"github.com/go-zoox/debug"
+	"github.com/go-zoox/fetch"
+	"github.com/go-zoox/fs"
 	"github.com/go-zoox/fs/type/yaml"
+	"github.com/go-zoox/logger"
 )
 
 func RegisterClient(app *cli.MultipleProgram) {
@@ -49,13 +54,31 @@ func RegisterClient(app *cli.MultipleProgram) {
 			},
 		},
 		Action: func(ctx *cli.Context) error {
-			pipeline := pipeline.Pipeline{}
-			if configPath := ctx.String("config"); configPath == "" {
-				return fmt.Errorf("config is required")
-			} else {
-				if err := yaml.Read(configPath, &pipeline); err != nil {
-					return fmt.Errorf("failed to read config(file: %s): %s", configPath, err)
+			config := ctx.String("config")
+
+			// support for remote config
+			if ok := regexp.Match(`^https?://`, config); ok {
+				url := config
+				config = fs.TmpFilePath() + ".yaml"
+				response, err := fetch.Get(url)
+				if err != nil {
+					return fmt.Errorf("failed to fetch config(url: %s): %s", url, err)
 				}
+
+				if err := fs.WriteFile(config, []byte(response.String())); err != nil {
+					return fmt.Errorf("failed to write config(file: %s): %s", config, err)
+				}
+
+				if !debug.IsDebugMode() {
+					defer fs.RemoveFile(config)
+				} else {
+					logger.Infof("load config from %s to %s", url, config)
+				}
+			}
+
+			pipeline := pipeline.Pipeline{}
+			if err := yaml.Read(config, &pipeline); err != nil {
+				return fmt.Errorf("failed to read config(file: %s): %s", config, err)
 			}
 
 			cfg := &client.Config{
