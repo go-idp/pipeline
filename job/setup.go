@@ -39,6 +39,10 @@ func (j *Job) Setup(id string, opts ...*Job) error {
 				}
 			}
 		}
+
+		if j.Timeout == 0 {
+			j.Timeout = opt.Timeout
+		}
 	}
 
 	// setup state
@@ -57,6 +61,8 @@ func (j *Job) Setup(id string, opts ...*Job) error {
 			Environment: j.Environment,
 			//
 			Image: j.Image,
+			//
+			Timeout: j.Timeout,
 		})
 		if err != nil {
 			return err

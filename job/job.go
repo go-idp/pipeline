@@ -16,6 +16,8 @@ type Job struct {
 	Image       string            `json:"image" yaml:"image"`
 	Environment map[string]string `json:"environment" yaml:"environment"`
 	//
+	Timeout int64 `json:"timeout" yaml:"timeout"`
+	//
 	State *State `json:"state" yaml:"state"`
 	//
 	stdout io.Writer

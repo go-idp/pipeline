@@ -15,6 +15,8 @@ type Stage struct {
 	//
 	Image       string            `json:"image" yaml:"image"`
 	Environment map[string]string `json:"environment" yaml:"environment"`
+	//
+	Timeout int64 `json:"timeout" yaml:"timeout"`
 	// RunMode is the mode to run the jobs, e.g. "serial", "parallel", default: parallel
 	RunMode string `json:"run_mode" yaml:"run_mode"`
 	//

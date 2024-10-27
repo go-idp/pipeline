@@ -26,6 +26,8 @@ type Pipeline struct {
 	Environment map[string]string `json:"environment" yaml:"environment"`
 	//
 	Image string `json:"image" yaml:"image"`
+	// Timeout is the timeout of the pipeline, unit: second, default: 86400 (1 day)
+	Timeout int64 `json:"timeout" yaml:"timeout"`
 	//
 	State *State `json:"state" yaml:"state"`
 	//
@@ -67,6 +69,11 @@ func (p *Pipeline) prepare(id string) error {
 
 	if p.Workdir == "" {
 		p.Workdir = fs.CurrentDir()
+	}
+
+	// default timeout is 1 day
+	if p.Timeout == 0 {
+		p.Timeout = 86400
 	}
 
 	// if workdir is current dir, skip create
@@ -152,6 +159,8 @@ func (p *Pipeline) prepare(id string) error {
 			Environment: p.Environment,
 			//
 			Image: p.Image,
+			//
+			Timeout: p.Timeout,
 		})
 		if err != nil {
 			return err
@@ -230,6 +239,12 @@ func (p *Pipeline) SetEnvironment(environment map[string]string) *Pipeline {
 // SetImage sets the image of the pipeline
 func (p *Pipeline) SetImage(image string) *Pipeline {
 	p.Image = image
+	return p
+}
+
+// SetTimeout sets the timeout of the pipeline
+func (p *Pipeline) SetTimeout(timeout int64) *Pipeline {
+	p.Timeout = timeout
 	return p
 }
 

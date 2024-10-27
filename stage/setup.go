@@ -39,6 +39,10 @@ func (s *Stage) Setup(id string, opts ...*Stage) error {
 				}
 			}
 		}
+
+		if s.Timeout == 0 {
+			s.Timeout = opt.Timeout
+		}
 	}
 
 	// setup state
@@ -57,6 +61,8 @@ func (s *Stage) Setup(id string, opts ...*Stage) error {
 			Environment: s.Environment,
 			//
 			Image: s.Image,
+			//
+			Timeout: s.Timeout,
 		})
 		if err != nil {
 			return err
