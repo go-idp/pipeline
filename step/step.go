@@ -19,6 +19,8 @@ type Step struct {
 	Image string `json:"image" yaml:"image"`
 	//
 	Shell string `json:"shell" yaml:"shell"`
+	// Timeout is the timeout of the step, unit: second, default: 86400 (1 day)
+	Timeout int64 `json:"timeout" yaml:"timeout"`
 	//
 	Plugin *Plugin `json:"plugin" yaml:"plugin"`
 	//

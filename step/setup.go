@@ -30,6 +30,14 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 			s.Workdir = opt.Workdir
 		}
 
+		if s.Shell == "" {
+			s.Shell = opt.Shell
+		}
+
+		if s.Timeout == 0 {
+			s.Timeout = opt.Timeout
+		}
+
 		if s.Environment == nil {
 			s.Environment = opt.Environment
 		} else {
@@ -39,6 +47,11 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 				}
 			}
 		}
+	}
+
+	// default timeout is 1 day
+	if s.Timeout == 0 {
+		s.Timeout = 86400
 	}
 
 	if s.Plugin != nil {
