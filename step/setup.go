@@ -60,6 +60,20 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		s.Timeout = 86400
 	}
 
+	// if language is set, will use the language
+	if s.Language != nil {
+		if s.Plugin != nil {
+			return fmt.Errorf("you can not use language and plugin at the same time")
+		}
+
+		s.logger.Infof("[workflow][language] use %s in step(%s)", s.Language.Name, s.Name)
+		s.Plugin = &Plugin{
+			Image: fmt.Sprintf("ghcr.io/go-idp/pipeline-language-%s:%s", s.Language.Name, s.Language.Version),
+			// inherit the environment of the step
+			inheritEnv: true,
+		}
+	}
+
 	if s.Plugin != nil {
 		//
 		originCommand := s.Command
@@ -86,6 +100,10 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		// e.g. {"key": "value" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=value
 		//  value support environment variables, e.g. {"key": "${ENV}" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=${ENV}
 		s.Environment = map[string]string{}
+		// interhit the environment
+		if s.Plugin.inheritEnv {
+			s.Environment = originEnvironment
+		}
 		//
 		s.Environment["PIPELINE_PLUGIN_COMMAND"] = base64.StdEncoding.EncodeToString([]byte(originCommand))
 		//

@@ -24,6 +24,8 @@ type Step struct {
 	//
 	Plugin *Plugin `json:"plugin" yaml:"plugin"`
 	//
+	Language *Language `json:"language" yaml:"language"`
+	//
 	State *State `json:"state" yaml:"state"`
 	//
 	stdout io.Writer
@@ -44,6 +46,18 @@ type Plugin struct {
 
 	// Entrypoint is the entrypoint of the plugin, default is "/pipeline/plugin/run"
 	Entrypoint string `json:"entrypoint" yaml:"entrypoint"`
+
+	// inheritEnv is the flag to inherit the environment of the step
+	inheritEnv bool
+}
+
+// Language represents a language of the step
+type Language struct {
+	// Name is the name of the language, e.g. "node", "go", "python"
+	Name string `json:"name" yaml:"name"`
+
+	// Version is the version of the language, e.g. "12", "1.20", "3.10"
+	Version string `json:"version" yaml:"version"`
 }
 
 func (s *Step) getLogger() *logger.Logger {
