@@ -1,6 +1,7 @@
 package step
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"time"
@@ -49,12 +50,21 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		}
 	}
 
+	// environment
+	if s.Environment == nil {
+		s.Environment = map[string]string{}
+	}
+
 	// default timeout is 1 day
 	if s.Timeout == 0 {
 		s.Timeout = 86400
 	}
 
 	if s.Plugin != nil {
+		//
+		originCommand := s.Command
+		originEnvironment := s.Environment
+
 		// s.logger.Infof("[workflow][plugin] use %s in step(%s)", s.Plugin.Image, s.Name)
 
 		if s.Plugin.Entrypoint == "" {
@@ -63,8 +73,6 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 
 		s.Image = s.Plugin.Image
 
-		//
-		originCommand := s.Command
 		// Check if /pipeline/plugin/run exists, if not, return an error
 		s.Command = fmt.Sprintf(
 			`if [ ! -f "%s" ]; then echo -e "\033[0;31merror: it is not a pipeline plugin (%s not found)\033[0m"; exit 127; fi; %s`,
@@ -77,15 +85,15 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		// will reset the environment
 		// e.g. {"key": "value" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=value
 		//  value support environment variables, e.g. {"key": "${ENV}" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=${ENV}
-		originEnv := s.Environment
-		s.Environment = map[string]string{
-			"PIPELINE_PLUGIN_COMMAND": originCommand,
-		}
+		s.Environment = map[string]string{}
+		//
+		s.Environment["PIPELINE_PLUGIN_COMMAND"] = base64.StdEncoding.EncodeToString([]byte(originCommand))
+		//
 		for k, v := range s.Plugin.Settings {
 			// if value is environment variable, replace it
 			if strings.HasPrefix(v, "${") && strings.HasSuffix(v, "}") {
 				key := strings.TrimPrefix(strings.TrimSuffix(v, "}"), "${")
-				if val, ok := originEnv[key]; ok {
+				if val, ok := originEnvironment[key]; ok {
 					s.Environment["PIPELINE_PLUGIN_SETTINGS_"+strings.UpperCase(k)] = val
 				}
 			} else {
