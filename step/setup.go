@@ -63,6 +63,8 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 
 		s.Image = s.Plugin.Image
 
+		//
+		originCommand := s.Command
 		// Check if /pipeline/plugin/run exists, if not, return an error
 		s.Command = fmt.Sprintf(
 			`if [ ! -f "%s" ]; then echo -e "\033[0;31merror: it is not a pipeline plugin (%s not found)\033[0m"; exit 127; fi; %s`,
@@ -76,7 +78,9 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		// e.g. {"key": "value" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=value
 		//  value support environment variables, e.g. {"key": "${ENV}" } => -e PIPELINE_PLUGIN_SETTINGS_KEY=${ENV}
 		originEnv := s.Environment
-		s.Environment = make(map[string]string)
+		s.Environment = map[string]string{
+			"PIPELINE_PLUGIN_COMMAND": originCommand,
+		}
 		for k, v := range s.Plugin.Settings {
 			// if value is environment variable, replace it
 			if strings.HasPrefix(v, "${") && strings.HasSuffix(v, "}") {
