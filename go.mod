@@ -8,15 +8,16 @@ require (
 	github.com/go-zoox/cli v1.4.0
 	github.com/go-zoox/command v1.8.2
 	github.com/go-zoox/core-utils v1.4.11
+	github.com/go-zoox/crypto v1.1.8
 	github.com/go-zoox/debug v1.0.5
 	github.com/go-zoox/encoding v1.2.1
 	github.com/go-zoox/fetch v1.8.3
 	github.com/go-zoox/fs v1.3.15
-	github.com/go-zoox/logger v1.6.2
+	github.com/go-zoox/logger v1.6.3
 	github.com/go-zoox/safe v1.2.0
 	github.com/go-zoox/uuid v0.0.1
 	github.com/go-zoox/websocket v1.3.5
-	github.com/go-zoox/zoox v1.15.17
+	github.com/go-zoox/zoox v1.15.18
 	golang.org/x/sync v0.8.0
 )
 
@@ -50,7 +51,6 @@ require (
 	github.com/go-zoox/cookie v1.2.0 // indirect
 	github.com/go-zoox/counter v1.2.1 // indirect
 	github.com/go-zoox/cron v1.2.3 // indirect
-	github.com/go-zoox/crypto v1.1.8 // indirect
 	github.com/go-zoox/datetime v1.3.1 // indirect
 	github.com/go-zoox/dotenv v1.3.0 // indirect
 	github.com/go-zoox/errors v1.0.2 // indirect
