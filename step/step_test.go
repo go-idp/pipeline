@@ -62,8 +62,9 @@ func TestStepSupportServiceTypeDockerCompose(t *testing.T) {
 	step := &Step{
 		Name: "test step",
 		Service: &Service{
-			Name: "test_service",
-			Type: "docker-compose",
+			Version: "v1",
+			Type:    "docker-compose",
+			Name:    "test_service",
 			Config: `
 version: '3.7'
 
