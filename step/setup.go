@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/go-zoox/core-utils/strings"
+	"github.com/go-zoox/fs"
+	"github.com/go-zoox/logger"
 )
 
 // Setup sets up the step
@@ -117,6 +119,71 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 			} else {
 				s.Environment["PIPELINE_PLUGIN_SETTINGS_"+strings.UpperCase(k)] = v
 			}
+		}
+	}
+
+	if s.Service != nil {
+		if s.Service.Name == "" {
+			return fmt.Errorf("service name is required for docker-compose")
+		}
+
+		if s.Service.Version == "" {
+			return fmt.Errorf("service version is required for docker-compose")
+		}
+
+		s.logger.Infof("[workflow][service] use service(type: %s, name: %s) in step(%s)", s.Service.Type, s.Service.Name, s.Name)
+
+		s.Environment["PIPELINE_SERVICE_TYPE"] = s.Service.Type
+		s.Environment["PIPELINE_SERVICE_NAME"] = s.Service.Name
+		s.Environment["PIPELINE_SERVICE_VERSION"] = s.Service.Version
+		// s.Environment["PIPELINE_SERVICE_CONFIG"] = base64.StdEncoding.EncodeToString([]byte(s.Service.Config))
+
+		// v1 => use command
+		if s.Service.Version == "v1" {
+			commands := []string{}
+			isTmp := false
+			if ok := fs.IsExist(s.Service.Config); ok {
+				s.Environment["PIPELINE_SERVICE_CONFIG_FILE"] = s.Service.Config
+				commands = append(commands, fmt.Sprintf("export PIPELINE_SERVICE_CONFIG_FILE=%s", s.Service.Config))
+			} else {
+				// @TODO write config to tmp file
+				commands = append(commands, fmt.Sprintf(`
+PIPELINE_SERVICE_CONFIG_FILE=$(mktemp)
+
+cat <<EOF > $PIPELINE_SERVICE_CONFIG_FILE
+%s
+EOF`, s.Service.Config))
+				isTmp = true
+			}
+
+			switch s.Service.Type {
+			case "docker-compose":
+
+				commands = append(commands, fmt.Sprintf("export COMPOSE_PROJECT_NAME=\"%s\"", s.Service.Name))
+				commands = append(commands, "docker-compose -f $PIPELINE_SERVICE_CONFIG_FILE up -d")
+			case "docker-swarm":
+				// commands = append(commands, fmt.Sprintf("export COMPOSE_PROJECT_NAME=\"%s\"", s.Service.Name))
+				commands = append(commands, fmt.Sprintf("docker stack deploy --with-registry-auth -c $PIPELINE_SERVICE_CONFIG_FILE %s", s.Service.Name))
+			case "kubernetes":
+				commands = append(commands, "kubectl apply -f $PIPELINE_SERVICE_CONFIG_FILE")
+			default:
+				return fmt.Errorf("unsupported service type %s, only support docker-compose | docker-swarm | kubernetes", s.Service.Type)
+			}
+
+			if isTmp {
+				// remove the tmp file
+				commands = append(commands, `rm -f $PIPELINE_SERVICE_CONFIG_FILE`)
+			}
+
+			// generate the command
+			s.Command = strings.Join(commands, "\n\n")
+
+			logger.Debugf("[workflow][service] %s", s.Command)
+		} else if s.Service.Version == "v2" {
+			// @TODO v2 => use sdk
+			return fmt.Errorf("service version %s is working in progress currently", s.Service.Version)
+		} else {
+			return fmt.Errorf("unsupported service version %s, only support v1 | v2", s.Service.Version)
 		}
 	}
 

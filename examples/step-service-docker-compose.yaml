@@ -1,0 +1,24 @@
+name: examples/step-service-docker-compose
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+
+stages:
+  - name: deploy
+    jobs:
+      - name: 部署
+        steps:
+          - name: deploy
+            service:
+              version: v1
+              type: docker-compose
+              name: example_task_1234
+              config: |
+                version: '3.7'
+                services:
+                  web:
+                    image: nginx:alpine
+                    environment:
+                      BUILD_TIMESTAMP: $EUNOMIA_BUILD_TIMESTAMP

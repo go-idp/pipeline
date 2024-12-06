@@ -2,6 +2,7 @@ package step
 
 import (
 	"context"
+	"fmt"
 	"testing"
 )
 
@@ -55,4 +56,29 @@ func TestStep(t *testing.T) {
 	// }
 
 	t.Logf("Step state: %+v", step.State)
+}
+
+func TestStepSupportServiceTypeDockerCompose(t *testing.T) {
+	step := &Step{
+		Name: "test step",
+		Service: &Service{
+			Name: "test_service",
+			Type: "docker-compose",
+			Config: `
+version: '3.7'
+
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - ${PIPELINE_SERVICE_PORT}:80
+`,
+		},
+	}
+
+	if err := step.Setup("0"); err != nil {
+		t.Errorf("Failed to setup step: %v", err)
+	}
+
+	fmt.Println(step.Command)
 }
