@@ -22,6 +22,9 @@ type Step struct {
 	// Timeout is the timeout of the step, unit: second, default: 86400 (1 day)
 	Timeout int64 `json:"timeout" yaml:"timeout"`
 	//
+	DataDirInner string `json:"data_dir_inner" yaml:"data_dir_inner"`
+	DataDirOuter string `json:"data_dir_outer" yaml:"data_dir_outer"`
+	//
 	Plugin *Plugin `json:"plugin" yaml:"plugin"`
 	//
 	Language *Language `json:"language" yaml:"language"`

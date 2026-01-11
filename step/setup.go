@@ -50,6 +50,14 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 				}
 			}
 		}
+
+		if s.DataDirInner == "" {
+			s.DataDirInner = opt.DataDirInner
+		}
+
+		if s.DataDirOuter == "" {
+			s.DataDirOuter = opt.DataDirOuter
+		}
 	}
 
 	// environment

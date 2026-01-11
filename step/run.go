@@ -56,6 +56,9 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 		Shell: s.Shell,
 		//
 		Timeout: time.Duration(s.Timeout) * time.Second,
+		//
+		DataDirOuter: s.DataDirOuter,
+		DataDirInner: s.DataDirInner,
 	}
 
 	ccfg.Engine = "host"
