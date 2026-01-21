@@ -29,6 +29,18 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 			s.Image = opt.Image
 		}
 
+		if s.ImageRegistry == "" {
+			s.ImageRegistry = opt.ImageRegistry
+		}
+
+		if s.ImageRegistryUsername == "" {
+			s.ImageRegistryUsername = opt.ImageRegistryUsername
+		}
+
+		if s.ImageRegistryPassword == "" {
+			s.ImageRegistryPassword = opt.ImageRegistryPassword
+		}
+
 		if s.Workdir == "" {
 			s.Workdir = opt.Workdir
 		}
@@ -96,6 +108,18 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		}
 
 		s.Image = s.Plugin.Image
+
+		if s.ImageRegistry != "" {
+			s.ImageRegistry = s.Plugin.ImageRegistry
+		}
+
+		if s.ImageRegistryUsername != "" {
+			s.ImageRegistryUsername = s.Plugin.ImageRegistryUsername
+		}
+
+		if s.ImageRegistryPassword != "" {
+			s.ImageRegistryPassword = s.Plugin.ImageRegistryPassword
+		}
 
 		// Check if /pipeline/plugin/run exists, if not, return an error
 		s.Command = fmt.Sprintf(

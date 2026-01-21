@@ -2,7 +2,10 @@ package pipeline
 
 import (
 	"context"
+	"net"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/go-idp/pipeline/job"
 	"github.com/go-idp/pipeline/stage"
@@ -11,6 +14,19 @@ import (
 )
 
 func TestPipeline(t *testing.T) {
+	// This test relies on a working local Docker daemon because the pipeline image
+	// is set (step engine becomes docker). In unit-test environments where Docker
+	// isn't available (e.g. CI or sandbox), skip to keep `go test ./...` stable.
+	const dockerSock = "/var/run/docker.sock"
+	if _, err := os.Stat(dockerSock); err != nil {
+		t.Skipf("docker not available (%s): %v", dockerSock, err)
+	}
+	conn, err := net.DialTimeout("unix", dockerSock, 200*time.Millisecond)
+	if err != nil {
+		t.Skipf("docker daemon not reachable (%s): %v", dockerSock, err)
+	}
+	_ = conn.Close()
+
 	pipeline := &Pipeline{
 		// Version: "0.0.0",
 		Name: "XX 项目发布",

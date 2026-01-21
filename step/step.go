@@ -18,6 +18,10 @@ type Step struct {
 	//
 	Image string `json:"image" yaml:"image"`
 	//
+	ImageRegistry         string `json:"image_registry" yaml:"image_registry"`
+	ImageRegistryUsername string `json:"image_registry_username" yaml:"image_registry_username"`
+	ImageRegistryPassword string `json:"image_registry_password" yaml:"image_registry_password"`
+	//
 	Shell string `json:"shell" yaml:"shell"`
 	// Timeout is the timeout of the step, unit: second, default: 86400 (1 day)
 	Timeout int64 `json:"timeout" yaml:"timeout"`

@@ -53,6 +53,10 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 		//
 		Image: s.Image,
 		//
+		ImageRegistry:         s.ImageRegistry,
+		ImageRegistryUsername: s.ImageRegistryUsername,
+		ImageRegistryPassword: s.ImageRegistryPassword,
+		//
 		Shell: s.Shell,
 		//
 		Timeout: time.Duration(s.Timeout) * time.Second,
@@ -64,6 +68,18 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 	ccfg.Engine = "host"
 	if s.Image != "" {
 		ccfg.Engine = "docker"
+	}
+
+	if s.ImageRegistry != "" {
+		ccfg.ImageRegistry = s.ImageRegistry
+	}
+
+	if s.ImageRegistryUsername != "" {
+		ccfg.ImageRegistryUsername = s.ImageRegistryUsername
+	}
+
+	if s.ImageRegistryPassword != "" {
+		ccfg.ImageRegistryPassword = s.ImageRegistryPassword
 	}
 
 	if s.Engine != "" {

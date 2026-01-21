@@ -13,7 +13,12 @@ type Job struct {
 	//
 	Workdir string `json:"workdir" yaml:"workdir"`
 	//
-	Image       string            `json:"image" yaml:"image"`
+	Image string `json:"image" yaml:"image"`
+	//
+	ImageRegistry         string `json:"image_registry" yaml:"image_registry"`
+	ImageRegistryUsername string `json:"image_registry_username" yaml:"image_registry_username"`
+	ImageRegistryPassword string `json:"image_registry_password" yaml:"image_registry_password"`
+	//
 	Environment map[string]string `json:"environment" yaml:"environment"`
 	//
 	Timeout int64 `json:"timeout" yaml:"timeout"`

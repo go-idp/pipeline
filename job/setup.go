@@ -63,6 +63,10 @@ func (j *Job) Setup(id string, opts ...*Job) error {
 			Image: j.Image,
 			//
 			Timeout: j.Timeout,
+			//
+			ImageRegistry:         j.ImageRegistry,
+			ImageRegistryUsername: j.ImageRegistryUsername,
+			ImageRegistryPassword: j.ImageRegistryPassword,
 		})
 		if err != nil {
 			return err

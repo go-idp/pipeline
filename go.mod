@@ -6,7 +6,7 @@ require (
 	github.com/go-idp/agent v1.9.6
 	github.com/go-zoox/chalk v1.0.2
 	github.com/go-zoox/cli v1.4.0
-	github.com/go-zoox/command v1.9.1
+	github.com/go-zoox/command v1.10.1
 	github.com/go-zoox/core-utils v1.4.11
 	github.com/go-zoox/crypto v1.1.8
 	github.com/go-zoox/debug v1.0.5

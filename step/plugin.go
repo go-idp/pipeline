@@ -15,4 +15,13 @@ type Plugin struct {
 
 	// inheritEnv is the flag to inherit the environment of the step
 	inheritEnv bool
+
+	// ImageRegistry is the image registry of the plugin, e.g. "docker.io"
+	ImageRegistry string `json:"image_registry" yaml:"image_registry"`
+
+	// ImageRegistryUsername is the image registry username of the plugin, e.g. "username"
+	ImageRegistryUsername string `json:"image_registry_username" yaml:"image_registry_username"`
+
+	// ImageRegistryPassword is the image registry password of the plugin, e.g. "password"
+	ImageRegistryPassword string `json:"image_registry_password" yaml:"image_registry_password"`
 }
