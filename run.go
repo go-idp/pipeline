@@ -22,14 +22,22 @@ func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
 
 	//
 	logger.Infof("[workflow] start to run (name: %s)", p.Name)
+	var runErr error
 	defer func() {
-		logger.Infof("[workflow] done to run (name: %s, workdir: %s)", p.Name, p.Workdir)
+		if runErr != nil {
+			logger.Errorf("[workflow] error: %s", runErr)
+			logger.Errorf("[workflow] workdir: %s", p.Workdir)
+			logger.Errorf("[workflow] logs: check workdir for detailed logs and output files")
+			logger.Errorf("[workflow] workdir preserved for debugging (not cleaned)")
+		} else {
+			logger.Infof("[workflow] done to run (name: %s, workdir: %s)", p.Name, p.Workdir)
+		}
 	}()
 
 	if err := p.prepare(cfg.ID); err != nil {
+		runErr = err
 		return err
 	}
-	defer p.clean()
 
 	plog := p.getLogger()
 	plog.Infof("[workflow] start")
@@ -37,7 +45,6 @@ func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
 	plog.Infof("[workflow] name: %s", p.Name)
 	plog.Infof("[workflow] workdir: %s", p.Workdir)
 	plog.Infof("[workflow] timeout: %d seconds", p.Timeout)
-	defer plog.Infof("[workflow] done")
 
 	// Create context with timeout for pipeline
 	var cancel context.CancelFunc
@@ -60,12 +67,27 @@ func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
 			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 				p.State.Error = fmt.Sprintf("pipeline timeout after %d seconds: %s", p.Timeout, err.Error())
 			}
+
+			// 输出错误信息
+			plog.Errorf("[workflow] error: %s", err)
+			plog.Errorf("[workflow] workdir: %s", p.Workdir)
+			plog.Errorf("[workflow] logs: check workdir for detailed logs and output files")
+			plog.Errorf("[workflow] workdir preserved for debugging (not cleaned)")
+
+			runErr = err
+			// 失败时不清理 workdir，保留以便调试
 			return err
 		}
 	}
 
 	p.State.Status = "succeeded"
 	p.State.SucceedAt = time.Now()
+	plog.Infof("[workflow] done")
+
+	// 成功时清理 workdir
+	if err := p.clean(); err != nil {
+		logger.Warnf("[workflow] failed to clean workdir: %s", err)
+	}
 
 	return nil
 }

@@ -11,4 +11,6 @@ type Config struct {
 	//
 	Username string
 	Password string
+	//
+	MaxConcurrent int // 最大并发数，默认 2
 }

@@ -179,6 +179,12 @@ steps:
 
 ## 4. 命令行使用
 
+Pipeline 提供了三个主要命令：
+
+- **`run`**: 在本地直接运行 Pipeline
+- **`server`**: 启动 Pipeline 服务，提供 Web Console 和 REST API
+- **`client`**: 连接到 Pipeline Server 并执行 Pipeline
+
 ### 4.1 run 命令
 
 运行一个 Pipeline：
@@ -187,15 +193,7 @@ steps:
 pipeline run [选项]
 ```
 
-**选项**:
-- `-c, --config`: 指定配置文件路径（支持本地文件和 HTTP/HTTPS URL）
-- `-w, --workdir`: 指定工作目录
-- `-i, --image`: 指定默认 Docker 镜像
-- `-e, --env`: 设置环境变量（格式：KEY=VALUE，可多次使用）
-- `--allow-env`: 允许传递指定的环境变量（可多次使用）
-- `--allow-all-env`: 允许传递所有环境变量
-
-**示例**:
+**快速示例**:
 
 ```bash
 # 使用默认配置文件
@@ -208,14 +206,10 @@ pipeline run -c my-pipeline.yaml
 pipeline run -c https://example.com/pipeline.yaml
 
 # 设置工作目录和环境变量
-pipeline run -w /tmp/pipeline -e BUILD_ID=123 -e BRANCH=main
-
-# 允许传递系统环境变量
-pipeline run --allow-env GITHUB_TOKEN --allow-env CI
-
-# 允许传递所有环境变量
-pipeline run --allow-all-env
+pipeline run -w /tmp/pipeline -e BUILD_ID=123
 ```
+
+**详细文档**: 请参考 [Run 命令文档](./COMMAND_RUN.md)
 
 ### 4.2 server 命令
 
@@ -225,58 +219,46 @@ pipeline run --allow-all-env
 pipeline server [选项]
 ```
 
-**选项**:
-- `-p, --port`: 服务端口（默认：8080）
-- `--path`: WebSocket 路径（默认：/）
-- `-w, --workdir`: 工作目录（默认：/tmp/go-idp/pipeline）
-- `-u, --username`: 用户名（可选，用于认证）
-- `--password`: 密码（可选，用于认证）
-- `--allow-env`: 允许传递指定的环境变量
-- `--allow-all-env`: 允许传递所有环境变量
-
-**示例**:
+**快速示例**:
 
 ```bash
-# 启动服务端（默认端口 8080）
+# 启动服务器（默认端口 8080）
 pipeline server
 
-# 指定端口和工作目录
-pipeline server -p 9090 -w /data/pipeline
+# 自定义端口和工作目录
+pipeline server -p 9090 -w /var/lib/pipeline
 
 # 启用认证
 pipeline server -u admin --password secret123
 
-# 允许传递环境变量
-pipeline server --allow-env GITHUB_TOKEN --allow-env CI
+# 设置并发数
+pipeline server --max-concurrent 5
 ```
+
+**详细文档**: 请参考 [Server 命令文档](./COMMAND_SERVER.md)
 
 ### 4.3 client 命令
 
-连接到服务端并执行 Pipeline：
+连接到 Pipeline Server 并执行 Pipeline：
 
 ```bash
 pipeline client [选项]
 ```
 
-**选项**:
-- `-c, --config`: Pipeline 配置文件（必需）
-- `-s, --server`: 服务端地址（必需，格式：ws://host:port 或 wss://host:port）
-- `-u, --username`: 用户名（可选）
-- `-p, --password`: 密码（可选）
-- `--path`: WebSocket 路径（默认：/）
-
-**示例**:
+**快速示例**:
 
 ```bash
-# 连接到本地服务端
+# 基本使用
 pipeline client -c pipeline.yaml -s ws://localhost:8080
 
-# 连接到远程服务端（TLS）
-pipeline client -c pipeline.yaml -s wss://pipeline.example.com:8080
-
 # 使用认证
-pipeline client -c pipeline.yaml -s ws://localhost:8080 -u admin -p secret123
+pipeline client -c pipeline.yaml -s ws://localhost:8080 -u admin -p password123
+
+# 使用远程配置
+pipeline client -c https://example.com/pipeline.yaml -s ws://pipeline.example.com
 ```
+
+**详细文档**: 请参考 [Client 命令文档](./COMMAND_CLIENT.md)
 
 ## 5. 使用场景示例
 

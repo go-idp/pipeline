@@ -54,6 +54,12 @@ func RegisterServer(app *cli.MultipleProgram) {
 				Usage:   "Specifies the allowed all environment variables",
 				EnvVars: []string{"ALLOW_ALL_ENV"},
 			},
+			&cli.IntFlag{
+				Name:    "max-concurrent",
+				Usage:   "Specifies the maximum concurrent pipeline executions",
+				EnvVars: []string{"MAX_CONCURRENT"},
+				Value:   2,
+			},
 		},
 		Action: func(ctx *cli.Context) error {
 			environment := map[string]string{}
@@ -86,6 +92,8 @@ func RegisterServer(app *cli.MultipleProgram) {
 				//
 				Username: ctx.String("username"),
 				Password: ctx.String("password"),
+				//
+				MaxConcurrent: ctx.Int("max-concurrent"),
 			}
 
 			s := server.New(cfg)

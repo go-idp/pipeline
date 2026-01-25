@@ -20,6 +20,10 @@ type MountConfig struct {
 	Workdir string
 	//
 	Environment map[string]string
+	//
+	Store Store
+	//
+	Queue Queue
 }
 
 type MountOption func(cfg *MountConfig)
@@ -79,6 +83,12 @@ func Mount(app *zoox.Application, opts ...MountOption) error {
 			}
 
 			conn.WriteTextMessage(msg)
+
+			// 记录日志到存储
+			if cfg.Store != nil {
+				cfg.Store.AddLog(conn.ID(), "stdout", string(b))
+			}
+
 			return len(b), nil
 		})
 
@@ -93,6 +103,12 @@ func Mount(app *zoox.Application, opts ...MountOption) error {
 			}
 
 			conn.WriteTextMessage(msg)
+
+			// 记录日志到存储
+			if cfg.Store != nil {
+				cfg.Store.AddLog(conn.ID(), "stderr", string(b))
+			}
+
 			return len(b), nil
 		})
 
@@ -110,60 +126,61 @@ func Mount(app *zoox.Application, opts ...MountOption) error {
 				return nil
 			}
 
-			go func() {
-				// // prepare
-				// pl.SetOnChange(func(typ string, status string, payload any) {
-				// 	type Status struct {
-				// 		Type    string `json:"type"`
-				// 		Status  string `json:"status"`
-				// 		Payload any    `json:"payload"`
-				// 	}
+			// 保存原始 YAML
+			yamlPayload := act.Payload
 
-				// 	conn.WriteJSON(&Status{
-				// 		Type:    "status",
-				// 		Status:  status,
-				// 		Payload: payload,
-				// 	})
-				// })
+			// 设置输出
+			pl.SetStdout(stdout)
+			pl.SetStderr(stderr)
 
-				// pl.SetOnLog(func(message, typ string, payload any) {
-				// 	type Log struct {
-				// 		Type    string `json:"type"`
-				// 		Message string `json:"message"`
-				// 		Context any    `json:"context"`
-				// 	}
-
-				// 	conn.WriteJSON(&Log{
-				// 		Type:    "log",
-				// 		Message: message,
-				// 		Context: map[string]any{
-				// 			"type":    typ,
-				// 			"payload": payload,
-				// 		},
-				// 	})
-				// })
-
-				// pl.Workdir = fmt.Sprintf("%s/%s", s.cfg.Workdir, conn.ID())
-				pl.SetWorkdir(fmt.Sprintf("%s/%s", cfg.Workdir, conn.ID()))
-				//
-				pl.SetEnvironment(cfg.Environment)
-				//
-				pl.SetStdout(stdout)
-				pl.SetStderr(stderr)
-
-				// started
-				err := pl.Run(conn.Context(), func(cfg *pipeline.RunConfig) {
-					cfg.ID = conn.ID()
-				})
-				if err != nil {
-					sendError(fmt.Errorf("failed to run pipeline: %s", err))
-					return
+			// 添加到队列
+			if cfg.Queue != nil {
+				// 传递 YAML 到队列
+				if err := cfg.Queue.EnqueueWithYAML(conn.ID(), pl.Name, pl, yamlPayload); err != nil {
+					sendError(fmt.Errorf("failed to enqueue pipeline: %s", err))
+					return nil
 				}
 
+				// 发送确认消息
 				sendDone()
+			} else {
+				// 如果没有队列，直接执行（向后兼容）
+				go func() {
+					// 创建 pipeline 记录
+					config := make(map[string]interface{})
+					config["name"] = pl.Name
+					config["workdir"] = fmt.Sprintf("%s/%s", cfg.Workdir, conn.ID())
+					config["timeout"] = pl.Timeout
+					config["image"] = pl.Image
 
-				// succeeded
-			}()
+					if cfg.Store != nil {
+						cfg.Store.CreateWithYAML(conn.ID(), pl.Name, yamlPayload, config)
+						cfg.Store.UpdateStatus(conn.ID(), "running", nil)
+					}
+
+					pl.SetWorkdir(fmt.Sprintf("%s/%s", cfg.Workdir, conn.ID()))
+					pl.SetEnvironment(cfg.Environment)
+
+					err := pl.Run(conn.Context(), func(cfg *pipeline.RunConfig) {
+						cfg.ID = conn.ID()
+					})
+
+					if cfg.Store != nil {
+						if err != nil {
+							cfg.Store.UpdateStatus(conn.ID(), "failed", err)
+						} else {
+							cfg.Store.UpdateStatus(conn.ID(), "succeeded", nil)
+						}
+					}
+
+					if err != nil {
+						sendError(fmt.Errorf("failed to run pipeline: %s", err))
+						return
+					}
+
+					sendDone()
+				}()
+			}
 		default:
 			sendError(fmt.Errorf("unsupported action type: %s", act.Type))
 			return nil
