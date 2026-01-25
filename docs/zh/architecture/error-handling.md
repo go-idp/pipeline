@@ -1,12 +1,10 @@
-# Pipeline 错误处理文档
-
-## 概述
+# 错误处理
 
 Pipeline 在执行过程中可能会遇到各种错误情况。本文档详细说明了 Pipeline 的错误处理机制、workdir 清理策略以及错误信息的输出格式。
 
 ## 错误处理机制
 
-### 1. 错误状态管理
+### 错误状态管理
 
 当 Pipeline 执行失败时，会设置以下状态：
 
@@ -14,11 +12,12 @@ Pipeline 在执行过程中可能会遇到各种错误情况。本文档详细�
 - **Error**: 包含详细的错误信息
 - **FailedAt**: 记录失败时间戳
 
-### 2. 错误类型
+### 错误类型
 
 Pipeline 可能遇到的错误类型包括：
 
-#### 2.1 Stage 执行错误
+#### Stage 执行错误
+
 当某个 Stage 执行失败时，Pipeline 会立即终止并返回错误。
 
 ```yaml
@@ -31,7 +30,8 @@ stages:
             command: "make build"  # 如果失败，Pipeline 会终止
 ```
 
-#### 2.2 超时错误
+#### 超时错误
+
 当 Pipeline 执行时间超过设定的 `timeout` 时，会触发超时错误。
 
 ```yaml
@@ -39,7 +39,8 @@ name: My Pipeline
 timeout: 60  # 60 秒超时
 ```
 
-#### 2.3 Context 取消错误
+#### Context 取消错误
+
 当外部 Context 被取消时，Pipeline 会立即终止。
 
 ```go
@@ -107,10 +108,6 @@ pipeline.Run(ctx)
 [workflow] workdir: /tmp/pipeline/abc123
 [workflow] logs: check workdir for detailed logs and output files
 [workflow] workdir preserved for debugging (not cleaned)
-[workflow] error: stage "build" failed: job "build-job" failed: step "compile" failed: exit status 1
-[workflow] workdir: /tmp/pipeline/abc123
-[workflow] logs: check workdir for detailed logs and output files
-[workflow] workdir preserved for debugging (not cleaned)
 ```
 
 ### 超时错误的日志
@@ -148,102 +145,78 @@ cat /tmp/pipeline/abc123/output/*
 
 ### 3. 使用 Context 控制执行
 
+使用 Context 可以更好地控制 Pipeline 的执行：
+
 ```go
-ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 defer cancel()
 
-err := pipeline.Run(ctx)
-if err != nil {
-    // 检查 workdir 进行调试
-    log.Printf("Pipeline failed, workdir: %s", pipeline.Workdir)
+if err := pipeline.Run(ctx); err != nil {
+    log.Printf("Pipeline failed: %v", err)
 }
 ```
 
-### 4. 定期清理失败的 workdir
+### 4. 在 Post 钩子中添加清理逻辑
 
-虽然失败的 workdir 会被保留，但建议定期清理以避免磁盘空间问题：
+在 Post 钩子中添加清理逻辑，确保资源得到正确清理：
+
+```yaml
+post: |
+  echo "Cleaning up..."
+  rm -rf /tmp/build-artifacts
+```
+
+## 常见错误
+
+### 命令执行失败
+
+**原因**: 命令返回非零退出码
+
+**解决**: 检查命令是否正确，查看 workdir 中的日志文件
+
+### 超时错误
+
+**原因**: Pipeline 执行时间超过设定的超时时间
+
+**解决**: 增加超时时间或优化 Pipeline 执行效率
+
+### 工作目录权限问题
+
+**原因**: 无法创建工作目录或写入文件
+
+**解决**: 检查目录权限，确保有足够的权限
+
+### 环境变量未传递
+
+**原因**: 环境变量未正确传递到 Pipeline
+
+**解决**: 检查环境变量配置，使用 `--allow-env` 选项
+
+## 调试技巧
+
+### 启用调试模式
 
 ```bash
-# 查找并清理旧的 workdir
-find /tmp/pipeline -type d -mtime +7 -exec rm -rf {} \;
+DEBUG=1 pipeline run -c pipeline.yaml
 ```
 
-## 错误处理示例
+调试模式下会输出更详细的日志信息。
 
-### 示例 1: 处理 Stage 失败
+### 查看 workdir
 
-```go
-pipeline := &Pipeline{
-    Name: "Build Pipeline",
-    Stages: []*stage.Stage{
-        {
-            Name: "build",
-            Jobs: []*job.Job{
-                {
-                    Name: "compile",
-                    Steps: []*step.Step{
-                        {
-                            Name:    "build",
-                            Command: "make build",
-                        },
-                    },
-                },
-            },
-        },
-    },
-}
+失败后查看 workdir 中的文件：
 
-err := pipeline.Run(context.Background())
-if err != nil {
-    // Pipeline 失败，workdir 已保留
-    log.Printf("Pipeline failed: %v", err)
-    log.Printf("Workdir preserved at: %s", pipeline.Workdir)
-    
-    // 可以检查 workdir 中的文件
-    // 例如：查看编译错误日志
-}
+```bash
+ls -la /tmp/pipeline/abc123
+cat /tmp/pipeline/abc123/*.log
 ```
 
-### 示例 2: 处理超时
+### 检查环境变量
 
-```go
-pipeline := &Pipeline{
-    Name:    "Long Running Pipeline",
-    Timeout: 60, // 60 秒超时
-    Stages: []*stage.Stage{
-        // ...
-    },
-}
+在 Pipeline 中添加步骤检查环境变量：
 
-err := pipeline.Run(context.Background())
-if err != nil {
-    if strings.Contains(err.Error(), "timeout") {
-        log.Printf("Pipeline timed out after 60 seconds")
-        log.Printf("Check workdir for partial results: %s", pipeline.Workdir)
-    }
-}
+```yaml
+steps:
+  - name: check-env
+    command: env | grep PIPELINE
 ```
-
-## 常见问题
-
-### Q: 为什么失败的 workdir 不自动清理？
-
-A: 失败的 workdir 被保留是为了方便调试和问题排查。您可以手动清理，或者设置定期清理任务。
-
-### Q: 如何禁用 workdir 清理？
-
-A: 将 `workdir` 设置为当前目录，Pipeline 不会清理当前目录。
-
-### Q: workdir 清理失败会影响 Pipeline 状态吗？
-
-A: 不会。如果清理失败，只会记录警告日志，不会影响 Pipeline 的成功状态。
-
-### Q: 如何查看详细的错误信息？
-
-A: 检查 `pipeline.State.Error` 字段，或者查看 workdir 中的日志文件。
-
-## 相关文档
-
-- [使用文档](./USAGE.md)
-- [架构文档](./ARCHITECTURE.md)
-- [优化文档](./OPTIMIZATION.md)

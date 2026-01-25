@@ -1,145 +1,78 @@
-# Pipeline 文档索引
+# Pipeline 文档
 
-欢迎使用 Pipeline！本文档索引帮助您快速找到所需的文档。
+这是 Pipeline 项目的文档网站，使用 VitePress 构建。
 
-## 📚 文档列表
-
-### 入门文档
-
-- **[使用文档](./USAGE.md)** - Pipeline 的完整使用指南
-  - 安装方法
-  - 快速开始
-  - 配置文件格式
-  - 使用场景示例
-
-### 命令文档
-
-- **[Run 命令文档](./COMMAND_RUN.md)** - `pipeline run` 命令详细说明
-  - 命令选项
-  - 配置文件查找
-  - 使用示例
-  - 错误处理
-
-- **[Server 命令文档](./COMMAND_SERVER.md)** - `pipeline server` 命令详细说明
-  - 服务器配置
-  - Web Console 使用
-  - REST API 文档
-  - 队列管理
-  - 部署建议
-
-- **[Client 命令文档](./COMMAND_CLIENT.md)** - `pipeline client` 命令详细说明
-  - 连接服务器
-  - WebSocket 通信
-  - 使用示例
-  - 错误处理
-
-### 技术文档
-
-- **[架构文档](./ARCHITECTURE.md)** - Pipeline 的架构设计
-  - 系统架构
-  - 组件说明
-  - 数据流
-  - 扩展机制
-
-- **[错误处理文档](./ERROR_HANDLING.md)** - 错误处理机制
-  - 错误类型
-  - Workdir 清理策略
-  - 错误日志格式
-  - 最佳实践
-
-- **[优化文档](./OPTIMIZATION.md)** - 性能优化指南
-  - 性能优化建议
-  - 资源管理
-  - 最佳实践
-
-## 🚀 快速开始
-
-### 1. 本地运行 Pipeline
+## 开发
 
 ```bash
-# 创建配置文件
-cat > .pipeline.yaml <<EOF
-name: My Pipeline
-stages:
-  - name: build
-    jobs:
-      - name: build-job
-        steps:
-          - name: hello
-            command: echo "Hello, Pipeline!"
-EOF
+# 安装依赖
+pnpm install
 
-# 运行 Pipeline
-pipeline run
+# 启动开发服务器
+pnpm run dev
+
+# 构建文档
+pnpm run build
+
+# 预览构建结果
+pnpm run preview
 ```
 
-**参考**: [Run 命令文档](./COMMAND_RUN.md)
+## 部署
 
-### 2. 启动 Pipeline Server
+文档网站可以部署到 GitHub Pages、Netlify、Vercel 等平台。
 
+### GitHub Pages
+
+1. 构建文档：
 ```bash
-# 启动服务器
-pipeline server
-
-# 访问 Web Console
-open http://localhost:8080/console
+pnpm run build
 ```
 
-**参考**: [Server 命令文档](./COMMAND_SERVER.md)
+2. 将 `docs/.vitepress/dist` 目录部署到 GitHub Pages。
 
-### 3. 使用 Client 连接 Server
+### Netlify
 
-```bash
-# 启动服务器（在另一个终端）
-pipeline server
+创建 `netlify.toml`：
 
-# 使用客户端执行 Pipeline
-pipeline client -c pipeline.yaml -s ws://localhost:8080
+```toml
+[build]
+  command = "pnpm run build"
+  publish = "docs/.vitepress/dist"
 ```
 
-**参考**: [Client 命令文档](./COMMAND_CLIENT.md)
+### Vercel
 
-## 📖 文档导航
+Vercel 会自动检测 VitePress 项目并配置构建。
 
-### 按使用场景
+## 文档结构
 
-- **本地开发**: [使用文档](./USAGE.md) → [Run 命令文档](./COMMAND_RUN.md)
-- **服务部署**: [Server 命令文档](./COMMAND_SERVER.md) → [架构文档](./ARCHITECTURE.md)
-- **远程执行**: [Client 命令文档](./COMMAND_CLIENT.md) → [Server 命令文档](./COMMAND_SERVER.md)
-- **问题排查**: [错误处理文档](./ERROR_HANDLING.md) → [使用文档](./USAGE.md)
+```
+docs/
+├── .vitepress/          # VitePress 配置
+│   ├── config.js        # 配置文件
+│   └── theme/           # 主题配置
+├── guide/               # 指南文档
+├── commands/            # 命令文档
+├── architecture/        # 架构文档
+├── best-practices/      # 最佳实践
+└── index.md            # 首页
+```
 
-### 按用户角色
+## 配置
 
-- **开发者**: [使用文档](./USAGE.md) → [Run 命令文档](./COMMAND_RUN.md) → [错误处理文档](./ERROR_HANDLING.md)
-- **运维人员**: [Server 命令文档](./COMMAND_SERVER.md) → [架构文档](./ARCHITECTURE.md) → [优化文档](./OPTIMIZATION.md)
-- **架构师**: [架构文档](./ARCHITECTURE.md) → [优化文档](./OPTIMIZATION.md)
+配置文件位于 `docs/.vitepress/config.js`，可以修改：
 
-## 🔍 常见问题
+- 网站标题和描述
+- 导航栏和侧边栏
+- 主题配置
+- 搜索配置
 
-### 如何选择运行方式？
+## 贡献
 
-- **本地运行** (`pipeline run`): 适合本地开发和测试
-- **Server 模式** (`pipeline server`): 适合生产环境，提供 Web Console 和 API
-- **Client 模式** (`pipeline client`): 适合 CI/CD 集成，远程执行 Pipeline
+欢迎贡献文档！请：
 
-### 如何配置 Pipeline？
-
-参考 [使用文档 - 配置文件格式](./USAGE.md#3-配置文件格式)
-
-### Pipeline 失败后如何调试？
-
-参考 [错误处理文档](./ERROR_HANDLING.md)
-
-### 如何优化 Pipeline 性能？
-
-参考 [优化文档](./OPTIMIZATION.md)
-
-## 📝 文档贡献
-
-如果您发现文档有错误或需要改进，欢迎提交 Issue 或 Pull Request。
-
-## 🔗 相关资源
-
-- GitHub: https://github.com/go-idp/pipeline
-- 示例配置: `examples/` 目录
-- 单元测试: `*_test.go` 文件
+1. Fork 本仓库
+2. 创建特性分支
+3. 提交更改
+4. 开启 Pull Request

@@ -2,3 +2,8 @@
 tmp/
 
 pipeline
+
+node_modules/
+
+# TypeScript
+*.tsbuildinfo

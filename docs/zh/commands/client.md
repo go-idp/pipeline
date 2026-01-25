@@ -1,6 +1,4 @@
-# Pipeline Client 命令文档
-
-## 概述
+# client 命令
 
 `pipeline client` 命令用于连接到 Pipeline Server 并通过 WebSocket 执行 Pipeline。客户端会将 Pipeline 配置发送到服务器，并实时接收执行日志和结果。
 
@@ -148,15 +146,6 @@ export PASSWORD=password123
 pipeline client
 ```
 
-### 示例 6: 在 URL 中包含认证信息
-
-```bash
-# 用户名和密码可以包含在 URL 中
-pipeline client \
-  -c pipeline.yaml \
-  -s ws://admin:password123@localhost:8080
-```
-
 ## 输出格式
 
 客户端会实时输出 Pipeline 的执行日志：
@@ -201,115 +190,22 @@ authentication failed
 
 ### Pipeline 执行错误
 
-如果 Pipeline 执行失败，客户端会输出错误信息并返回非零退出码：
-
-```
-[workflow] error: stage "build" failed: job "build-job" failed: step "compile" failed: exit status 1
-```
-
-## 退出码
-
-- `0`: Pipeline 执行成功
-- `非零`: Pipeline 执行失败或连接错误
-
-## 与 Server 的交互
-
-### WebSocket 消息格式
-
-客户端发送的消息格式：
-
-```json
-{
-  "type": "run",
-  "payload": "<YAML 格式的 Pipeline 配置>"
-}
-```
-
-服务器返回的消息类型：
-
-- `stdout`: 标准输出日志
-- `stderr`: 标准错误日志
-- `done`: 执行完成
-- `error`: 执行错误
-
-### 连接流程
-
-1. 客户端建立 WebSocket 连接
-2. 客户端发送 `run` 消息（包含 Pipeline 配置）
-3. 服务器将 Pipeline 加入队列
-4. 服务器返回 `done` 消息（表示已加入队列）
-5. 服务器执行 Pipeline 并发送日志
-6. 服务器发送最终结果（`done` 或 `error`）
-
-## 最佳实践
-
-### 1. 使用环境变量管理敏感信息
-
-```bash
-export SERVER=ws://pipeline.example.com
-export USERNAME=admin
-export PASSWORD=$(cat ~/.pipeline/password)
-pipeline client -c pipeline.yaml
-```
-
-### 2. 在 CI/CD 中使用
-
-```yaml
-# GitHub Actions 示例
-- name: Run Pipeline
-  run: |
-    pipeline client \
-      -c pipeline.yaml \
-      -s ws://${{ secrets.PIPELINE_SERVER }} \
-      -u ${{ secrets.PIPELINE_USERNAME }} \
-      -p ${{ secrets.PIPELINE_PASSWORD }}
-```
-
-### 3. 检查执行结果
-
-```bash
-if pipeline client -c pipeline.yaml -s ws://localhost:8080; then
-  echo "Pipeline executed successfully"
-else
-  echo "Pipeline failed"
-  exit 1
-fi
-```
+如果 Pipeline 执行失败，客户端会输出错误信息并退出，退出码为非零。
 
 ## 常见问题
 
-### Q: 如何知道 Pipeline 是否执行成功？
+### Q: 如何连接到远程服务器？
 
-A: 检查命令的退出码。退出码为 0 表示成功，非零表示失败。
+A: 使用 `-s` 选项指定服务器地址，格式为 `ws://host:port` 或 `wss://host:port`。
 
-### Q: 客户端会等待 Pipeline 执行完成吗？
+### Q: 如何提供认证信息？
 
-A: 是的。客户端会等待 Pipeline 执行完成或失败后才退出。
+A: 使用 `-u` 和 `-p` 选项提供用户名和密码，或使用环境变量 `USERNAME` 和 `PASSWORD`。
 
-### Q: 如何查看详细的执行日志？
+### Q: 如何查看执行日志？
 
-A: 客户端会实时输出所有日志。如果需要保存日志，可以重定向输出：
+A: 客户端会实时输出执行日志到标准输出和标准错误。
 
-```bash
-pipeline client -c pipeline.yaml -s ws://localhost:8080 > pipeline.log 2>&1
-```
+### Q: 如何判断 Pipeline 是否成功？
 
-### Q: 支持多个 Pipeline 同时执行吗？
-
-A: 支持。可以在多个终端同时运行客户端，服务器会管理执行队列。
-
-### Q: 如何取消正在执行的 Pipeline？
-
-A: 在客户端端按 Ctrl+C 可以取消连接，但 Pipeline 可能仍在服务器端执行。需要通过服务器的 Web Console 或 API 取消。
-
-### Q: 客户端和直接运行有什么区别？
-
-A: 
-- **直接运行** (`pipeline run`): 在本地执行 Pipeline
-- **客户端运行** (`pipeline client`): 将 Pipeline 发送到服务器执行，适合远程执行和集中管理
-
-## 相关文档
-
-- [Server 命令文档](./COMMAND_SERVER.md)
-- [使用文档](./USAGE.md)
-- [架构文档](./ARCHITECTURE.md)
+A: 查看客户端退出码，0 表示成功，非零表示失败。
