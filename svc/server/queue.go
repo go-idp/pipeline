@@ -14,7 +14,7 @@ import (
 type QueueItem struct {
 	ID        string             `json:"id"`
 	Name      string             `json:"name"`
-	Status    string             `json:"status"` // pending | running | succeeded | failed
+	Status    string             `json:"status"` // pending | running | succeeded | failed | cancelled
 	CreatedAt time.Time          `json:"created_at"`
 	StartedAt *time.Time         `json:"started_at,omitempty"`
 	EndedAt   *time.Time         `json:"ended_at,omitempty"`
@@ -50,6 +50,7 @@ type QueueStats struct {
 	Running           int `json:"running"`
 	Succeeded         int `json:"succeeded"`
 	Failed            int `json:"failed"`
+	Cancelled         int `json:"cancelled"`
 	MaxConcurrent     int `json:"max_concurrent"`
 	CurrentConcurrent int `json:"current_concurrent"`
 }
@@ -181,26 +182,50 @@ func (q *queue) Cancel(id string) bool {
 		return false
 	}
 
+	// 如果正在运行，取消执行
 	if item.Status == "running" && item.Cancel != nil {
 		item.Cancel()
 		delete(q.runningItems, id)
-		item.Status = "failed"
+		item.Status = "cancelled"
 		item.Error = "cancelled by user"
 		now := time.Now()
 		item.EndedAt = &now
+
+		// 更新 store 状态
+		if q.store != nil {
+			q.store.UpdateStatus(id, "cancelled", fmt.Errorf("cancelled by user"))
+		}
+
+		logger.Infof("[queue] pipeline %s cancelled", id)
 		return true
 	}
 
-	// 从待处理队列中移除
-	for i, pendingID := range q.pendingItems {
-		if pendingID == id {
-			q.pendingItems = append(q.pendingItems[:i], q.pendingItems[i+1:]...)
-			break
+	// 如果是 pending 状态，标记为 cancelled
+	if item.Status == "pending" {
+		// 从待处理队列中移除
+		for i, pendingID := range q.pendingItems {
+			if pendingID == id {
+				q.pendingItems = append(q.pendingItems[:i], q.pendingItems[i+1:]...)
+				break
+			}
 		}
+
+		item.Status = "cancelled"
+		item.Error = "cancelled by user"
+		now := time.Now()
+		item.EndedAt = &now
+
+		// 更新 store 状态
+		if q.store != nil {
+			q.store.UpdateStatus(id, "cancelled", fmt.Errorf("cancelled by user"))
+		}
+
+		logger.Infof("[queue] pipeline %s cancelled (pending)", id)
+		return true
 	}
 
-	delete(q.items, id)
-	return true
+	// 其他状态不能取消
+	return false
 }
 
 func (q *queue) Stats() QueueStats {
@@ -223,6 +248,8 @@ func (q *queue) Stats() QueueStats {
 			stats.Succeeded++
 		case "failed":
 			stats.Failed++
+		case "cancelled":
+			stats.Cancelled++
 		}
 	}
 
@@ -294,17 +321,34 @@ func (q *queue) execute(item *QueueItem) {
 
 	// 更新状态
 	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	// 检查是否已经被取消（在锁外可能被取消）
+	if item.Status == "cancelled" {
+		return
+	}
+
 	delete(q.runningItems, item.ID)
 	now := time.Now()
 	item.EndedAt = &now
 
+	// 检查是否是 context 取消错误
 	if err != nil {
-		item.Status = "failed"
-		item.Error = err.Error()
-		if q.store != nil {
-			q.store.UpdateStatus(item.ID, "failed", err)
+		if err == context.Canceled {
+			item.Status = "cancelled"
+			item.Error = "cancelled by user"
+			if q.store != nil {
+				q.store.UpdateStatus(item.ID, "cancelled", err)
+			}
+			logger.Infof("[queue] pipeline %s cancelled", item.ID)
+		} else {
+			item.Status = "failed"
+			item.Error = err.Error()
+			if q.store != nil {
+				q.store.UpdateStatus(item.ID, "failed", err)
+			}
+			logger.Errorf("[queue] pipeline %s failed: %s", item.ID, err)
 		}
-		logger.Errorf("[queue] pipeline %s failed: %s", item.ID, err)
 	} else {
 		item.Status = "succeeded"
 		if q.store != nil {
@@ -312,7 +356,6 @@ func (q *queue) execute(item *QueueItem) {
 		}
 		logger.Infof("[queue] pipeline %s succeeded", item.ID)
 	}
-	q.mu.Unlock()
 }
 
 // queueWriter 队列写入器，用于将日志写入 store

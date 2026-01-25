@@ -11,16 +11,17 @@ import (
 
 // PipelineRecord 记录 pipeline 执行信息
 type PipelineRecord struct {
-	ID        string                 `json:"id"`
-	Name      string                 `json:"name"`
-	Status    string                 `json:"status"` // pending | running | succeeded | failed
-	StartedAt time.Time              `json:"started_at"`
-	SucceedAt *time.Time             `json:"succeed_at,omitempty"`
-	FailedAt  *time.Time             `json:"failed_at,omitempty"`
-	Error     string                 `json:"error,omitempty"`
-	Config    map[string]interface{} `json:"config,omitempty"`
-	YAML      string                 `json:"yaml,omitempty"` // 完整的 pipeline YAML 配置
-	Logs      []LogEntry             `json:"logs,omitempty"`
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Status      string                 `json:"status"` // pending | running | succeeded | failed | cancelled
+	StartedAt   time.Time              `json:"started_at"`
+	SucceedAt   *time.Time             `json:"succeed_at,omitempty"`
+	FailedAt    *time.Time             `json:"failed_at,omitempty"`
+	CancelledAt *time.Time             `json:"cancelled_at,omitempty"`
+	Error       string                 `json:"error,omitempty"`
+	Config      map[string]interface{} `json:"config,omitempty"`
+	YAML        string                 `json:"yaml,omitempty"` // 完整的 pipeline YAML 配置
+	Logs        []LogEntry             `json:"logs,omitempty"`
 }
 
 // LogEntry 日志条目
@@ -150,6 +151,11 @@ func (s *memoryStore) UpdateStatus(id, status string, err error) {
 		record.SucceedAt = &now
 	case "failed":
 		record.FailedAt = &now
+		if err != nil {
+			record.Error = err.Error()
+		}
+	case "cancelled":
+		record.CancelledAt = &now
 		if err != nil {
 			record.Error = err.Error()
 		}

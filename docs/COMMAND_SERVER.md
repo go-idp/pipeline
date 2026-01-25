@@ -133,9 +133,30 @@ pipeline server --max-concurrent 5
 
 - **Pipeline 管理**: 创建、查看、删除 Pipeline
 - **队列管理**: 查看队列状态、取消任务
+- **Pipeline 取消**: 支持取消正在执行或等待中的 Pipeline
 - **历史记录**: 查看 Pipeline 执行历史
 - **实时日志**: 查看 Pipeline 执行日志
+- **Pipeline 定义查看**: 查看完整的 Pipeline YAML 配置，支持一键复制
 - **系统设置**: 配置队列并发数等设置
+
+#### Web Console 功能说明
+
+**任务卡片布局**：
+- 状态标签显示在左侧，便于快速识别 Pipeline 状态
+- Pipeline 名称和状态在同一行显示
+- Pipeline ID 单独显示在第二行
+- 对于 `pending` 或 `running` 状态的 Pipeline，右侧显示"取消"按钮
+
+**Pipeline 详情查看**：
+- 支持查看 Pipeline 的完整信息（状态、时间、错误等）
+- 支持查看 Pipeline 执行日志
+- 支持查看 Pipeline 定义（YAML 格式）
+- Pipeline 定义右上角提供"复制"按钮，可一键复制完整的 YAML 配置到剪贴板
+
+**取消 Pipeline**：
+- 在 Pipeline 列表中，`pending` 或 `running` 状态的 Pipeline 会显示红色的"取消"按钮
+- 点击取消按钮后，会弹出确认对话框
+- 取消成功后，Pipeline 状态会变为 `cancelled`，并显示成功通知
 
 ### 2. REST API
 
@@ -146,6 +167,7 @@ pipeline server --max-concurrent 5
 - `GET /api/v1/pipelines` - 获取 Pipeline 列表
 - `GET /api/v1/pipelines/:id` - 获取 Pipeline 详情
 - `GET /api/v1/pipelines/:id/logs` - 获取 Pipeline 日志
+- `POST /api/v1/pipelines/:id/cancel` - 取消 Pipeline 执行
 - `DELETE /api/v1/pipelines/:id` - 删除 Pipeline 记录
 
 #### 队列管理
@@ -239,6 +261,40 @@ pipeline server \
 - **running**: 正在执行
 - **succeeded**: 执行成功
 - **failed**: 执行失败
+- **cancelled**: 已取消（由用户主动取消）
+
+### 取消 Pipeline
+
+Pipeline 支持取消操作，可以取消以下状态的 Pipeline：
+
+- **pending**: 等待中的 Pipeline 可以直接取消，状态会变为 `cancelled`
+- **running**: 正在执行的 Pipeline 会通过 context 取消机制停止执行，状态会变为 `cancelled`
+
+**注意**：
+- 已完成的 Pipeline（`succeeded`、`failed`、`cancelled`）不能取消
+- 取消操作会立即停止 Pipeline 执行，但不会清理工作目录（workdir），以便调试
+- 取消的 Pipeline 会保留在历史记录中，状态为 `cancelled`
+
+**通过 API 取消**：
+
+```bash
+# 取消 Pipeline
+curl -X POST http://localhost:8080/api/v1/pipelines/{id}/cancel
+
+# 取消队列中的任务（等同于上面的操作）
+curl -X DELETE http://localhost:8080/api/v1/queue/{id}
+```
+
+**通过 Web Console 取消**：
+
+在 Web Console 的 Pipeline 列表中，对于 `pending` 或 `running` 状态的 Pipeline，会显示红色的"取消"按钮（位于任务卡片右侧），点击即可取消。
+
+**通过 Web Console 复制 Pipeline 定义**：
+
+1. 在 Pipeline 列表中点击任务卡片，打开详情 Drawer
+2. 切换到"Pipeline 定义"标签页
+3. 点击右上角的"📋 复制"按钮
+4. Pipeline YAML 配置会自动复制到剪贴板，并显示成功通知
 
 ## 数据存储
 
@@ -325,6 +381,16 @@ curl http://localhost:8080/api/v1/pipelines/{id}
 
 ```bash
 curl http://localhost:8080/api/v1/queue/stats
+```
+
+### 取消 Pipeline
+
+```bash
+# 取消 Pipeline（推荐）
+curl -X POST http://localhost:8080/api/v1/pipelines/{id}/cancel
+
+# 或取消队列中的任务
+curl -X DELETE http://localhost:8080/api/v1/queue/{id}
 ```
 
 ### 使用认证

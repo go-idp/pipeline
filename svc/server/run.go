@@ -167,6 +167,52 @@ func (s *server) Run() error {
 			})
 		})
 
+		// 取消 pipeline 执行
+		api.Post("/pipelines/:id/cancel", func(ctx *zoox.Context) {
+			id := ctx.Param().Get("id").String()
+
+			// 尝试从队列取消
+			if s.queue != nil && s.queue.Cancel(id) {
+				ctx.JSON(200, map[string]string{
+					"message": "pipeline cancelled",
+				})
+				return
+			}
+
+			// 检查是否存在记录
+			record, ok := s.store.Get(id)
+			if !ok {
+				ctx.Status(404)
+				ctx.JSON(404, map[string]string{
+					"error": "pipeline not found",
+				})
+				return
+			}
+
+			// 如果已经是最终状态，不能取消
+			if record.Status == "succeeded" || record.Status == "failed" || record.Status == "cancelled" {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("pipeline is already %s, cannot cancel", record.Status),
+				})
+				return
+			}
+
+			// 如果不在队列中，直接更新状态为 cancelled
+			if record.Status == "pending" || record.Status == "running" {
+				s.store.UpdateStatus(id, "cancelled", fmt.Errorf("cancelled by user"))
+				ctx.JSON(200, map[string]string{
+					"message": "pipeline cancelled",
+				})
+				return
+			}
+
+			ctx.Status(400)
+			ctx.JSON(400, map[string]string{
+				"error": "pipeline cannot be cancelled",
+			})
+		})
+
 		// 删除 pipeline 记录
 		api.Delete("/pipelines/:id", func(ctx *zoox.Context) {
 			id := ctx.Param().Get("id").String()
