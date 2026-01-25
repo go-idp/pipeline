@@ -130,11 +130,14 @@ pipeline server --max-concurrent 5
 访问 `http://localhost:8080/console` 可以打开 Web Console，提供：
 
 - **Pipeline 管理**: 创建、查看、删除 Pipeline
+- **搜索和过滤**: 按名称或ID搜索 Pipeline，按状态和时间范围过滤
 - **队列管理**: 查看队列状态、取消任务
 - **Pipeline 取消**: 支持取消正在执行或等待中的 Pipeline
 - **历史记录**: 查看 Pipeline 执行历史
-- **实时日志**: 查看 Pipeline 执行日志
+- **日志增强**: 搜索、过滤和导出 Pipeline 执行日志
+- **实时日志**: 查看 Pipeline 执行日志，支持实时流式传输
 - **Pipeline 定义查看**: 查看完整的 Pipeline YAML 配置，支持一键复制
+- **深色模式**: 支持浅色和深色主题切换
 - **系统设置**: 配置队列并发数等设置
 
 ### REST API
@@ -144,10 +147,16 @@ pipeline server --max-concurrent 5
 #### Pipeline 管理
 
 - `GET /api/v1/pipelines` - 获取 Pipeline 列表
+  - 查询参数: `search`, `status`, `start_time`, `end_time`, `limit`, `offset`
 - `GET /api/v1/pipelines/:id` - 获取 Pipeline 详情
 - `GET /api/v1/pipelines/:id/logs` - 获取 Pipeline 日志
+  - 查询参数: `search`, `type`, `start_time`, `end_time`, `limit`, `offset`
+- `GET /api/v1/pipelines/:id/logs/export` - 导出 Pipeline 日志
+  - 查询参数: `format` (text|json), `search`, `type`, `start_time`, `end_time`
 - `POST /api/v1/pipelines/:id/cancel` - 取消 Pipeline 执行
 - `DELETE /api/v1/pipelines/:id` - 删除 Pipeline 记录
+- `POST /api/v1/pipelines/batch/delete` - 批量删除 Pipeline
+- `POST /api/v1/pipelines/batch/cancel` - 批量取消 Pipeline
 
 #### 队列管理
 

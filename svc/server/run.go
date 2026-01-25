@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/go-idp/pipeline"
 	"github.com/go-zoox/chalk"
@@ -72,6 +74,32 @@ func (s *server) Run() error {
 				}
 			}
 
+			offset := 0
+			if offsetStr := ctx.Request.URL.Query().Get("offset"); offsetStr != "" {
+				if parsed, err := strconv.Atoi(offsetStr); err == nil {
+					offset = parsed
+				}
+			}
+
+			// 获取查询参数
+			search := ctx.Request.URL.Query().Get("search")
+			statusFilter := ctx.Request.URL.Query().Get("status")
+			startTimeStr := ctx.Request.URL.Query().Get("start_time")
+			endTimeStr := ctx.Request.URL.Query().Get("end_time")
+
+			// 解析时间范围
+			var startTime, endTime *time.Time
+			if startTimeStr != "" {
+				if t, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
+					startTime = &t
+				}
+			}
+			if endTimeStr != "" {
+				if t, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
+					endTime = &t
+				}
+			}
+
 			// 获取 store 中的记录
 			storeRecords := s.store.List(limit * 2) // 获取更多以便合并
 
@@ -127,13 +155,49 @@ func (s *server) Run() error {
 				}
 			}
 
-			if limit > 0 && limit < len(records) {
-				records = records[:limit]
+			// 应用过滤
+			filtered := make([]*PipelineRecord, 0)
+			for _, record := range records {
+				// 搜索过滤
+				if search != "" {
+					searchLower := strings.ToLower(search)
+					nameMatch := strings.Contains(strings.ToLower(record.Name), searchLower)
+					idMatch := strings.Contains(strings.ToLower(record.ID), searchLower)
+					if !nameMatch && !idMatch {
+						continue
+					}
+				}
+
+				// 状态过滤
+				if statusFilter != "" && record.Status != statusFilter {
+					continue
+				}
+
+				// 时间范围过滤
+				if startTime != nil && record.StartedAt.Before(*startTime) {
+					continue
+				}
+				if endTime != nil && record.StartedAt.After(*endTime) {
+					continue
+				}
+
+				filtered = append(filtered, record)
+			}
+
+			// 应用分页
+			total := len(filtered)
+			if offset > 0 && offset < len(filtered) {
+				filtered = filtered[offset:]
+			}
+			if limit > 0 && limit < len(filtered) {
+				filtered = filtered[:limit]
 			}
 
 			ctx.JSON(200, map[string]interface{}{
-				"data":  records,
-				"total": len(records),
+				"data":   filtered,
+				"total":  total,
+				"limit":  limit,
+				"offset": offset,
 			})
 		})
 
@@ -162,9 +226,161 @@ func (s *server) Run() error {
 				})
 				return
 			}
+
+			logs := record.Logs
+
+			// 应用过滤
+			search := ctx.Request.URL.Query().Get("search")
+			typeFilter := ctx.Request.URL.Query().Get("type")
+			startTimeStr := ctx.Request.URL.Query().Get("start_time")
+			endTimeStr := ctx.Request.URL.Query().Get("end_time")
+			limit := 0
+			if limitStr := ctx.Request.URL.Query().Get("limit"); limitStr != "" {
+				if parsed, err := strconv.Atoi(limitStr); err == nil {
+					limit = parsed
+				}
+			}
+			offset := 0
+			if offsetStr := ctx.Request.URL.Query().Get("offset"); offsetStr != "" {
+				if parsed, err := strconv.Atoi(offsetStr); err == nil {
+					offset = parsed
+				}
+			}
+
+			// 解析时间范围
+			var startTime, endTime *time.Time
+			if startTimeStr != "" {
+				if t, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
+					startTime = &t
+				}
+			}
+			if endTimeStr != "" {
+				if t, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
+					endTime = &t
+				}
+			}
+
+			// 过滤日志
+			filtered := make([]LogEntry, 0)
+			for _, log := range logs {
+				// 类型过滤
+				if typeFilter != "" && log.Type != typeFilter {
+					continue
+				}
+
+				// 搜索过滤
+				if search != "" && !strings.Contains(strings.ToLower(log.Message), strings.ToLower(search)) {
+					continue
+				}
+
+				// 时间范围过滤
+				if startTime != nil && log.Timestamp.Before(*startTime) {
+					continue
+				}
+				if endTime != nil && log.Timestamp.After(*endTime) {
+					continue
+				}
+
+				filtered = append(filtered, log)
+			}
+
+			// 应用分页
+			total := len(filtered)
+			if offset > 0 && offset < len(filtered) {
+				filtered = filtered[offset:]
+			}
+			if limit > 0 && limit < len(filtered) {
+				filtered = filtered[:limit]
+			}
+
 			ctx.JSON(200, map[string]interface{}{
-				"data": record.Logs,
+				"data":   filtered,
+				"total":  total,
+				"limit":  limit,
+				"offset": offset,
 			})
+		})
+
+		// 导出 pipeline 日志
+		api.Get("/pipelines/:id/logs/export", func(ctx *zoox.Context) {
+			id := ctx.Param().Get("id").String()
+			record, ok := s.store.Get(id)
+			if !ok {
+				ctx.Status(404)
+				ctx.JSON(404, map[string]string{
+					"error": "pipeline not found",
+				})
+				return
+			}
+
+			format := ctx.Request.URL.Query().Get("format")
+			if format == "" {
+				format = "text"
+			}
+
+			logs := record.Logs
+
+			// 应用过滤（与 logs 端点相同的过滤逻辑）
+			search := ctx.Request.URL.Query().Get("search")
+			typeFilter := ctx.Request.URL.Query().Get("type")
+			startTimeStr := ctx.Request.URL.Query().Get("start_time")
+			endTimeStr := ctx.Request.URL.Query().Get("end_time")
+
+			var startTime, endTime *time.Time
+			if startTimeStr != "" {
+				if t, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
+					startTime = &t
+				}
+			}
+			if endTimeStr != "" {
+				if t, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
+					endTime = &t
+				}
+			}
+
+			filtered := make([]LogEntry, 0)
+			for _, log := range logs {
+				if typeFilter != "" && log.Type != typeFilter {
+					continue
+				}
+				if search != "" && !strings.Contains(strings.ToLower(log.Message), strings.ToLower(search)) {
+					continue
+				}
+				if startTime != nil && log.Timestamp.Before(*startTime) {
+					continue
+				}
+				if endTime != nil && log.Timestamp.After(*endTime) {
+					continue
+				}
+				filtered = append(filtered, log)
+			}
+
+			if format == "json" {
+				ctx.SetHeader(headers.ContentType, "application/json")
+				ctx.SetHeader("Content-Disposition", fmt.Sprintf("attachment; filename=pipeline-%s-logs.json", id))
+				ctx.JSON(200, map[string]interface{}{
+					"pipeline_id":   id,
+					"pipeline_name": record.Name,
+					"exported_at":   time.Now().Format(time.RFC3339),
+					"logs":          filtered,
+				})
+			} else {
+				// 文本格式
+				ctx.SetHeader(headers.ContentType, "text/plain")
+				ctx.SetHeader("Content-Disposition", fmt.Sprintf("attachment; filename=pipeline-%s-logs.txt", id))
+
+				var sb strings.Builder
+				sb.WriteString(fmt.Sprintf("Pipeline: %s (ID: %s)\n", record.Name, id))
+				sb.WriteString(fmt.Sprintf("Exported at: %s\n", time.Now().Format(time.RFC3339)))
+				sb.WriteString(strings.Repeat("=", 80) + "\n\n")
+
+				for _, log := range filtered {
+					timestamp := log.Timestamp.Format("2006-01-02 15:04:05")
+					sb.WriteString(fmt.Sprintf("[%s] [%s] %s\n", timestamp, log.Type, log.Message))
+				}
+
+				ctx.String(200, sb.String())
+			}
 		})
 
 		// 取消 pipeline 执行
@@ -226,6 +442,92 @@ func (s *server) Run() error {
 					"error": "pipeline not found",
 				})
 			}
+		})
+
+		// 批量删除 pipeline 记录
+		api.Post("/pipelines/batch/delete", func(ctx *zoox.Context) {
+			var req struct {
+				IDs []string `json:"ids"`
+			}
+			if err := ctx.BindJSON(&req); err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("invalid request: %s", err),
+				})
+				return
+			}
+
+			deleted := 0
+			notFound := 0
+			for _, id := range req.IDs {
+				if s.store.Delete(id) {
+					deleted++
+				} else {
+					notFound++
+				}
+			}
+
+			ctx.JSON(200, map[string]interface{}{
+				"message":   "batch delete completed",
+				"deleted":   deleted,
+				"not_found": notFound,
+				"total":     len(req.IDs),
+			})
+		})
+
+		// 批量取消 pipeline
+		api.Post("/pipelines/batch/cancel", func(ctx *zoox.Context) {
+			var req struct {
+				IDs []string `json:"ids"`
+			}
+			if err := ctx.BindJSON(&req); err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("invalid request: %s", err),
+				})
+				return
+			}
+
+			cancelled := 0
+			failed := 0
+			notFound := 0
+
+			for _, id := range req.IDs {
+				// 尝试从队列取消
+				if s.queue != nil && s.queue.Cancel(id) {
+					cancelled++
+					continue
+				}
+
+				// 检查是否存在记录
+				record, ok := s.store.Get(id)
+				if !ok {
+					notFound++
+					continue
+				}
+
+				// 如果已经是最终状态，不能取消
+				if record.Status == "succeeded" || record.Status == "failed" || record.Status == "cancelled" {
+					failed++
+					continue
+				}
+
+				// 如果不在队列中，直接更新状态为 cancelled
+				if record.Status == "pending" || record.Status == "running" {
+					s.store.UpdateStatus(id, "cancelled", fmt.Errorf("cancelled by user"))
+					cancelled++
+				} else {
+					failed++
+				}
+			}
+
+			ctx.JSON(200, map[string]interface{}{
+				"message":   "batch cancel completed",
+				"cancelled": cancelled,
+				"failed":    failed,
+				"not_found": notFound,
+				"total":     len(req.IDs),
+			})
 		})
 
 		// 获取队列统计信息

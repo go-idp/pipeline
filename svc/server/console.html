@@ -764,6 +764,199 @@
         .notification.hiding {
             animation: slideOutRight 0.3s ease;
         }
+
+        /* 搜索和过滤样式 */
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .time-range-selector {
+            padding: 10px 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .time-range-selector:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* 日志增强样式 */
+        .log-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .log-search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .log-type-filter {
+            display: flex;
+            gap: 5px;
+        }
+
+        .log-type-filter button {
+            padding: 6px 12px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .log-type-filter button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .log-entry.highlight {
+            background: rgba(255, 255, 0, 0.2);
+        }
+
+        .log-entry mark {
+            background: rgba(255, 255, 0, 0.4);
+            padding: 0 2px;
+        }
+
+        /* 深色模式 */
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: white;
+            --text-primary: #333;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --header-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body.dark-mode {
+            --bg-primary: #1f2937;
+            --bg-secondary: #374151;
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --border-color: #4b5563;
+            --header-gradient: linear-gradient(135deg, #4b5563 0%, #1f2937 100%);
+        }
+
+        body.dark-mode {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .toolbar,
+        body.dark-mode .pipeline-card,
+        body.dark-mode .queue-stats,
+        body.dark-mode .drawer,
+        body.dark-mode .form-input,
+        body.dark-mode .search-input,
+        body.dark-mode .time-range-selector {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        body.dark-mode header {
+            background: var(--header-gradient);
+        }
+
+        body.dark-mode .pipeline-name,
+        body.dark-mode .detail-value,
+        body.dark-mode .pipeline-info-value {
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .pipeline-info-label,
+        body.dark-mode .detail-label,
+        body.dark-mode .pipeline-id {
+            color: var(--text-secondary);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* 实时日志样式 */
+        .realtime-log-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        body.dark-mode .realtime-log-toggle {
+            background: #4b5563;
+        }
+
+        .realtime-log-toggle input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .realtime-log-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            margin-left: 5px;
+            animation: pulse 2s infinite;
+        }
+
+        .realtime-log-indicator.active {
+            background: #10b981;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -773,11 +966,12 @@
         </header>
 
         <div class="toolbar">
-            <div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                 <button onclick="showRunPipeline()" style="background: #10b981;">➕ 新建 Pipeline</button>
                 <button onclick="refreshPipelines()">🔄 刷新</button>
                 <button onclick="clearFilter()">清除筛选</button>
                 <button onclick="showSettings()" style="background: #6b7280;">⚙️ 设置</button>
+                <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">🌓</button>
             </div>
             <div class="status-filter">
                 <button onclick="filterByStatus('all')" class="active" id="filter-all">全部</button>
@@ -786,6 +980,24 @@
                 <button onclick="filterByStatus('succeeded')" id="filter-succeeded">成功</button>
                 <button onclick="filterByStatus('failed')" id="filter-failed">失败</button>
                 <button onclick="filterByStatus('cancelled')" id="filter-cancelled">已取消</button>
+            </div>
+        </div>
+
+        <!-- 搜索栏 -->
+        <div class="search-bar">
+            <input type="text" id="search-input" class="search-input" placeholder="搜索 Pipeline (名称或ID)..." oninput="handleSearch()">
+            <select id="time-range-selector" class="time-range-selector" onchange="handleTimeRangeChange()">
+                <option value="">全部时间</option>
+                <option value="today">今天</option>
+                <option value="week">本周</option>
+                <option value="month">本月</option>
+                <option value="custom">自定义</option>
+            </select>
+            <div id="custom-time-range" style="display: none; gap: 10px; align-items: center;">
+                <input type="datetime-local" id="start-time" class="form-input" style="width: auto;">
+                <span>至</span>
+                <input type="datetime-local" id="end-time" class="form-input" style="width: auto;">
+                <button onclick="applyCustomTimeRange()" style="padding: 8px 15px;">应用</button>
             </div>
         </div>
 
@@ -925,9 +1137,18 @@ stages:
         const API_BASE = '/api/v1';
         let allPipelines = [];
         let currentFilter = 'all';
+        let searchQuery = '';
+        let timeRange = '';
+        let startTime = null;
+        let endTime = null;
+        let currentPipelineId = null;
+        let logWebSocket = null;
+        let realtimeLogEnabled = false;
 
         // 页面加载时获取 pipeline 列表和队列状态
         document.addEventListener('DOMContentLoaded', () => {
+            // 加载主题偏好
+            loadTheme();
             refreshPipelines();
             refreshQueueStats();
             // 每5秒自动刷新
@@ -940,7 +1161,22 @@ stages:
         // 获取 pipeline 列表
         async function refreshPipelines() {
             try {
-                const response = await fetch(`${API_BASE}/pipelines?limit=100`);
+                const params = new URLSearchParams();
+                params.append('limit', '100');
+                if (searchQuery) {
+                    params.append('search', searchQuery);
+                }
+                if (currentFilter !== 'all') {
+                    params.append('status', currentFilter);
+                }
+                if (startTime) {
+                    params.append('start_time', startTime.toISOString());
+                }
+                if (endTime) {
+                    params.append('end_time', endTime.toISOString());
+                }
+
+                const response = await fetch(`${API_BASE}/pipelines?${params.toString()}`);
                 const data = await response.json();
                 allPipelines = data.data || [];
                 renderPipelines();
@@ -1058,10 +1294,83 @@ stages:
 
         // 筛选 pipeline
         function filterPipelines() {
-            if (currentFilter === 'all') {
+            // 后端已经处理了过滤，这里直接返回
                 return allPipelines;
             }
-            return allPipelines.filter(p => p.status === currentFilter);
+
+        // 搜索处理
+        function handleSearch() {
+            searchQuery = document.getElementById('search-input').value.trim();
+            refreshPipelines();
+        }
+
+        // 时间范围处理
+        function handleTimeRangeChange() {
+            const selector = document.getElementById('time-range-selector');
+            timeRange = selector.value;
+            const customRange = document.getElementById('custom-time-range');
+            
+            if (timeRange === 'custom') {
+                customRange.style.display = 'flex';
+            } else {
+                customRange.style.display = 'none';
+                const now = new Date();
+                startTime = null;
+                endTime = null;
+                
+                if (timeRange === 'today') {
+                    startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    endTime = now;
+                } else if (timeRange === 'week') {
+                    const dayOfWeek = now.getDay();
+                    const diff = now.getDate() - dayOfWeek;
+                    startTime = new Date(now.getFullYear(), now.getMonth(), diff);
+                    endTime = now;
+                } else if (timeRange === 'month') {
+                    startTime = new Date(now.getFullYear(), now.getMonth(), 1);
+                    endTime = now;
+                }
+                
+                refreshPipelines();
+            }
+        }
+
+        // 应用自定义时间范围
+        function applyCustomTimeRange() {
+            const startInput = document.getElementById('start-time').value;
+            const endInput = document.getElementById('end-time').value;
+            
+            if (startInput) {
+                startTime = new Date(startInput);
+            } else {
+                startTime = null;
+            }
+            
+            if (endInput) {
+                endTime = new Date(endInput);
+            } else {
+                endTime = null;
+            }
+            
+            refreshPipelines();
+        }
+
+        // 深色模式
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            saveTheme();
+        }
+
+        function loadTheme() {
+            const theme = localStorage.getItem('pipeline-console-theme');
+            if (theme === 'dark') {
+                document.body.classList.add('dark-mode');
+            }
+        }
+
+        function saveTheme() {
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('pipeline-console-theme', isDark ? 'dark' : 'light');
         }
 
         // 按状态筛选
@@ -1080,10 +1389,19 @@ stages:
         // 清除筛选
         function clearFilter() {
             filterByStatus('all');
+            document.getElementById('search-input').value = '';
+            searchQuery = '';
+            document.getElementById('time-range-selector').value = '';
+            timeRange = '';
+            startTime = null;
+            endTime = null;
+            document.getElementById('custom-time-range').style.display = 'none';
+            refreshPipelines();
         }
 
         // 显示 pipeline 详情
         async function showPipelineDetails(id) {
+            currentPipelineId = id;
             const drawer = document.getElementById('pipeline-drawer');
             const content = document.getElementById('drawer-content');
             
@@ -1096,11 +1414,47 @@ stages:
                 </div>
             `;
 
+            // 关闭之前的实时日志连接
+            if (logWebSocket) {
+                logWebSocket.close();
+                logWebSocket = null;
+            }
+            realtimeLogEnabled = false;
+
             try {
                 const response = await fetch(`${API_BASE}/pipelines/${id}`);
                 const pipeline = await response.json();
 
                 document.getElementById('drawer-title').textContent = `${pipeline.name || 'Unnamed'} - ${pipeline.id}`;
+                
+                await renderPipelineDetails(pipeline);
+            } catch (error) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <div>❌ 加载失败: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        // 渲染 Pipeline 详情
+        async function renderPipelineDetails(pipeline) {
+            const content = document.getElementById('drawer-content');
+            
+            // 获取日志
+            let logs = pipeline.logs || [];
+            const logSearchQuery = document.getElementById('log-search-input')?.value || '';
+            const logTypeFilter = window.currentLogTypeFilter || '';
+            
+            if (logSearchQuery || logTypeFilter) {
+                const params = new URLSearchParams();
+                if (logSearchQuery) params.append('search', logSearchQuery);
+                if (logTypeFilter) params.append('type', logTypeFilter);
+                
+                const logResponse = await fetch(`${API_BASE}/pipelines/${pipeline.id}/logs?${params.toString()}`);
+                const logData = await logResponse.json();
+                logs = logData.data || [];
+            }
                 
                 content.innerHTML = `
                     <div class="pipeline-details">
@@ -1148,15 +1502,24 @@ stages:
                         <div class="tab" onclick="switchTab('yaml')">Pipeline 定义</div>
                     </div>
                     <div id="tab-logs" class="tab-content active">
-                        <div class="logs-container" id="logs-container">
-                            ${pipeline.logs && pipeline.logs.length > 0 
-                                ? pipeline.logs.map(log => `
-                                    <div class="log-entry ${log.type}">
-                                        [${formatTime(log.timestamp)}] ${escapeHtml(log.message)}
+                    <div class="log-toolbar">
+                        <input type="text" id="log-search-input" class="log-search-input" placeholder="搜索日志..." oninput="filterLogs()" value="${logSearchQuery}">
+                        <div class="log-type-filter">
+                            <button onclick="setLogTypeFilter('')" class="${logTypeFilter === '' ? 'active' : ''}" id="log-filter-all">全部</button>
+                            <button onclick="setLogTypeFilter('stdout')" class="${logTypeFilter === 'stdout' ? 'active' : ''}" id="log-filter-stdout">stdout</button>
+                            <button onclick="setLogTypeFilter('stderr')" class="${logTypeFilter === 'stderr' ? 'active' : ''}" id="log-filter-stderr">stderr</button>
+                            <button onclick="setLogTypeFilter('status')" class="${logTypeFilter === 'status' ? 'active' : ''}" id="log-filter-status">status</button>
                                     </div>
-                                `).join('')
-                                : '<div style="color: #6b7280;">暂无日志</div>'
-                            }
+                        <button onclick="exportLogs('text')" style="padding: 8px 15px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">📥 导出 TXT</button>
+                        <button onclick="exportLogs('json')" style="padding: 8px 15px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">📥 导出 JSON</button>
+                        <label class="realtime-log-toggle">
+                            <input type="checkbox" id="realtime-log-toggle" onchange="toggleRealtimeLogs()" ${pipeline.status === 'running' ? '' : 'disabled'}>
+                            <span>实时日志</span>
+                            <span class="realtime-log-indicator" id="realtime-indicator"></span>
+                        </label>
+                    </div>
+                    <div class="logs-container" id="logs-container">
+                        ${renderLogs(logs, logSearchQuery)}
                         </div>
                     </div>
                     <div id="tab-yaml" class="tab-content">
@@ -1175,20 +1538,188 @@ stages:
                 const logsContainer = document.getElementById('logs-container');
                 if (logsContainer) {
                     logsContainer.scrollTop = logsContainer.scrollHeight;
+            }
+        }
+
+        // 渲染日志
+        function renderLogs(logs, searchQuery = '') {
+            if (logs.length === 0) {
+                return '<div style="color: #6b7280;">暂无日志</div>';
+            }
+            
+            return logs.map(log => {
+                let message = escapeHtml(log.message);
+                if (searchQuery) {
+                    const regex = new RegExp(`(${escapeRegex(searchQuery)})`, 'gi');
+                    message = message.replace(regex, '<mark>$1</mark>');
+                }
+                return `<div class="log-entry ${log.type}">[${formatTime(log.timestamp)}] ${message}</div>`;
+            }).join('');
+        }
+
+        // 过滤日志
+        async function filterLogs() {
+            if (!currentPipelineId) return;
+            
+            const searchQuery = document.getElementById('log-search-input').value;
+            const typeFilter = window.currentLogTypeFilter || '';
+            
+            const params = new URLSearchParams();
+            if (searchQuery) params.append('search', searchQuery);
+            if (typeFilter) params.append('type', typeFilter);
+            
+            try {
+                const response = await fetch(`${API_BASE}/pipelines/${currentPipelineId}/logs?${params.toString()}`);
+                const data = await response.json();
+                const logsContainer = document.getElementById('logs-container');
+                if (logsContainer) {
+                    logsContainer.innerHTML = renderLogs(data.data || [], searchQuery);
                 }
             } catch (error) {
-                content.innerHTML = `
-                    <div class="empty-state">
-                        <div>❌ 加载失败: ${error.message}</div>
-                    </div>
-                `;
+                console.error('Failed to filter logs:', error);
             }
+        }
+
+        // 设置日志类型过滤
+        function setLogTypeFilter(type) {
+            window.currentLogTypeFilter = type;
+            
+            // 更新按钮状态
+            document.querySelectorAll('.log-type-filter button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`log-filter-${type || 'all'}`).classList.add('active');
+            
+            filterLogs();
+        }
+
+        // 导出日志
+        async function exportLogs(format) {
+            if (!currentPipelineId) return;
+            
+            const searchQuery = document.getElementById('log-search-input')?.value || '';
+            const typeFilter = window.currentLogTypeFilter || '';
+            
+            const params = new URLSearchParams();
+            params.append('format', format);
+            if (searchQuery) params.append('search', searchQuery);
+            if (typeFilter) params.append('type', typeFilter);
+            
+            const url = `${API_BASE}/pipelines/${currentPipelineId}/logs/export?${params.toString()}`;
+            window.open(url, '_blank');
+        }
+
+        // 切换实时日志
+        function toggleRealtimeLogs() {
+            const toggle = document.getElementById('realtime-log-toggle');
+            realtimeLogEnabled = toggle.checked;
+            const indicator = document.getElementById('realtime-indicator');
+            
+            if (realtimeLogEnabled) {
+                indicator.classList.add('active');
+                connectRealtimeLogs();
+            } else {
+                indicator.classList.remove('active');
+                if (logWebSocket) {
+                    logWebSocket.close();
+                    logWebSocket = null;
+                }
+            }
+        }
+
+        // 连接实时日志
+        function connectRealtimeLogs() {
+            if (!currentPipelineId) return;
+            
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsPath = window.location.pathname.replace('/console', '') || '/';
+            const wsURL = `${wsProtocol}//${window.location.host}${wsPath}`;
+            
+            try {
+                logWebSocket = new WebSocket(wsURL);
+                
+                logWebSocket.onopen = () => {
+                    // 订阅日志流
+                    logWebSocket.send(JSON.stringify({
+                        type: 'subscribe_logs',
+                        pipeline_id: currentPipelineId
+                    }));
+                };
+                
+                logWebSocket.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'log' && msg.pipeline_id === currentPipelineId) {
+                            appendLogEntry(msg.log);
+                        }
+                    } catch (error) {
+                        // 忽略解析错误
+                    }
+                };
+                
+                logWebSocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showNotification('error', '实时日志连接失败', '无法连接到服务器');
+                };
+                
+                logWebSocket.onclose = () => {
+                    if (realtimeLogEnabled) {
+                        // 尝试重连
+                        setTimeout(() => {
+                            if (realtimeLogEnabled) {
+                                connectRealtimeLogs();
+                            }
+                        }, 3000);
+                    }
+                };
+            } catch (error) {
+                console.error('Failed to connect realtime logs:', error);
+                showNotification('error', '实时日志连接失败', error.message);
+            }
+        }
+
+        // 追加日志条目
+        function appendLogEntry(log) {
+            const logsContainer = document.getElementById('logs-container');
+            if (!logsContainer) return;
+            
+            const searchQuery = document.getElementById('log-search-input')?.value || '';
+            let message = escapeHtml(log.message);
+            if (searchQuery) {
+                const regex = new RegExp(`(${escapeRegex(searchQuery)})`, 'gi');
+                message = message.replace(regex, '<mark>$1</mark>');
+            }
+            
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${log.type}`;
+            entry.innerHTML = `[${formatTime(log.timestamp)}] ${message}`;
+            
+            logsContainer.appendChild(entry);
+            
+            // 自动滚动到底部
+            if (realtimeLogEnabled) {
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+            }
+        }
+
+        // 工具函数
+        function escapeRegex(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
         // 关闭 Pipeline 详情 Drawer
         function closePipelineDrawer() {
             document.getElementById('drawer-overlay').classList.remove('active');
             document.getElementById('pipeline-drawer').classList.remove('active');
+            
+            // 关闭实时日志连接
+            if (logWebSocket) {
+                logWebSocket.close();
+                logWebSocket = null;
+            }
+            realtimeLogEnabled = false;
+            currentPipelineId = null;
+            window.currentLogTypeFilter = '';
         }
 
         // 关闭所有 Drawer

@@ -46,11 +46,14 @@ pipeline server --max-concurrent 5
 Access `http://localhost:8080/console` to open the Web Console, providing:
 
 - **Pipeline Management**: Create, view, delete Pipelines
+- **Search and Filter**: Search Pipelines by name or ID, filter by status and time range
 - **Queue Management**: View queue status, cancel tasks
 - **Pipeline Cancellation**: Support canceling executing or pending Pipelines
 - **History**: View Pipeline execution history
-- **Real-time Logs**: View Pipeline execution logs
+- **Enhanced Logs**: Search, filter, and export Pipeline execution logs
+- **Real-time Logs**: View Pipeline execution logs with real-time streaming support
 - **Pipeline Definition View**: View complete Pipeline YAML configuration with one-click copy
+- **Dark Mode**: Toggle between light and dark themes
 - **System Settings**: Configure queue concurrency and other settings
 
 ### REST API
@@ -60,10 +63,16 @@ The server provides the following REST API endpoints:
 #### Pipeline Management
 
 - `GET /api/v1/pipelines` - Get Pipeline list
+  - Query parameters: `search`, `status`, `start_time`, `end_time`, `limit`, `offset`
 - `GET /api/v1/pipelines/:id` - Get Pipeline details
 - `GET /api/v1/pipelines/:id/logs` - Get Pipeline logs
+  - Query parameters: `search`, `type`, `start_time`, `end_time`, `limit`, `offset`
+- `GET /api/v1/pipelines/:id/logs/export` - Export Pipeline logs
+  - Query parameters: `format` (text|json), `search`, `type`, `start_time`, `end_time`
 - `POST /api/v1/pipelines/:id/cancel` - Cancel Pipeline execution
 - `DELETE /api/v1/pipelines/:id` - Delete Pipeline record
+- `POST /api/v1/pipelines/batch/delete` - Batch delete Pipelines
+- `POST /api/v1/pipelines/batch/cancel` - Batch cancel Pipelines
 
 #### Queue Management
 
