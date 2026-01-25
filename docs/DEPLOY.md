@@ -54,6 +54,9 @@ base: '/'
 在部署前，可以在本地测试构建：
 
 ```bash
+# 进入 docs 目录
+cd docs
+
 # 安装依赖
 pnpm install
 
@@ -69,7 +72,7 @@ pnpm run preview
 ### 构建失败
 
 1. 检查 Node.js 版本（需要 20+）
-2. 检查 `package.json` 中的依赖
+2. 检查 `docs/package.json` 中的依赖
 3. 查看 GitHub Actions 日志
 
 ### 页面无法访问

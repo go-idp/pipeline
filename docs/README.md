@@ -5,6 +5,9 @@
 ## 开发
 
 ```bash
+# 进入 docs 目录
+cd docs
+
 # 安装依赖
 pnpm install
 
@@ -26,10 +29,11 @@ pnpm run preview
 
 1. 构建文档：
 ```bash
+cd docs
 pnpm run build
 ```
 
-2. 将 `docs/.vitepress/dist` 目录部署到 GitHub Pages。
+2. 将 `.vitepress/dist` 目录部署到 GitHub Pages。
 
 ### Netlify
 
@@ -37,7 +41,7 @@ pnpm run build
 
 ```toml
 [build]
-  command = "pnpm run build"
+  command = "cd docs && pnpm run build"
   publish = "docs/.vitepress/dist"
 ```
 
@@ -61,7 +65,7 @@ docs/
 
 ## 配置
 
-配置文件位于 `docs/.vitepress/config.js`，可以修改：
+配置文件位于 `.vitepress/config.ts`，可以修改：
 
 - 网站标题和描述
 - 导航栏和侧边栏
