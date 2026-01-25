@@ -395,10 +395,86 @@ Pipeline 执行完成后会自动清理工作目录（如果工作目录不是�
 
 ## 12. 超时控制
 
-- Pipeline 级别：默认 86400 秒（1 天）
-- Stage 级别：继承 Pipeline 的超时设置
-- Job 级别：继承 Stage 的超时设置
-- Step 级别：继承 Job 的超时设置，默认 86400 秒
+Pipeline 支持在 Pipeline、Stage、Job、Step 四个层级设置超时时间，通过 Context 超时机制实现。
+
+### 12.1 超时继承机制
+
+- **Pipeline 级别**：默认 86400 秒（1 天），可通过 `SetTimeout()` 方法或配置文件的 `timeout` 字段设置
+- **Stage 级别**：继承 Pipeline 的超时设置，可通过配置文件的 `timeout` 字段覆盖
+- **Job 级别**：继承 Stage 的超时设置，可通过配置文件的 `timeout` 字段覆盖
+- **Step 级别**：继承 Job 的超时设置，默认 86400 秒，可通过配置文件的 `timeout` 字段覆盖
+
+### 12.2 Context 超时实现
+
+每个层级的 `Run()` 方法都会根据该层级的 `Timeout` 字段创建带超时的 Context：
+
+```go
+// Pipeline.Run()
+if p.Timeout > 0 {
+    ctx, cancel = context.WithTimeout(ctx, time.Duration(p.Timeout)*time.Second)
+    defer cancel()
+}
+
+// Stage.Run()
+if s.Timeout > 0 {
+    ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Timeout)*time.Second)
+    defer cancel()
+}
+
+// Job.Run()
+if j.Timeout > 0 {
+    ctx, cancel = context.WithTimeout(ctx, time.Duration(j.Timeout)*time.Second)
+    defer cancel()
+}
+
+// Step.Run()
+if s.Timeout > 0 {
+    ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Timeout)*time.Second)
+    defer cancel()
+}
+```
+
+### 12.3 超时行为
+
+1. **超时传播**：超时 Context 会向下传递给子层级，子层级可以设置更短的超时时间
+2. **超时检测**：当超时发生时，会检测 `context.DeadlineExceeded` 或 `context.Canceled` 错误
+3. **错误信息**：超时错误会包含层级信息和超时时间，例如：`"pipeline timeout after 60 seconds: context deadline exceeded"`
+4. **状态更新**：超时发生时，对应层级的 `State.Status` 会被设置为 `"failed"`，`State.Error` 包含超时信息
+
+### 12.4 并行执行中的超时
+
+在 Stage 的并行执行模式中，`errgroup.WithContext()` 会从带超时的 Context 创建新的 Context，确保：
+- 任何一个 Job 超时，会取消所有并行执行的 Job
+- 超时错误会正确传播到 Stage 层级
+
+### 12.5 配置示例
+
+```yaml
+name: "test pipeline"
+timeout: 3600  # Pipeline 级别：1 小时
+
+stages:
+  - name: "build"
+    timeout: 1800  # Stage 级别：30 分钟（覆盖 Pipeline 的 1 小时）
+    jobs:
+      - name: "build job"
+        timeout: 900  # Job 级别：15 分钟（覆盖 Stage 的 30 分钟）
+        steps:
+          - name: "build step"
+            command: "make build"
+            timeout: 600  # Step 级别：10 分钟（覆盖 Job 的 15 分钟）
+```
+
+### 12.6 超时日志
+
+每个层级在设置超时时会输出日志，便于调试和监控：
+
+```
+[workflow] timeout: 3600 seconds
+[stage(1/2): build] timeout: 1800 seconds
+[job(1/1): build job] timeout: 900 seconds
+[step(1/1): build step] timeout: 600 seconds
+```
 
 ## 13. 依赖关系
 

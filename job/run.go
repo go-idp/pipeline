@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,7 +30,17 @@ func (j *Job) Run(ctx context.Context, opts ...RunOption) error {
 	}
 
 	j.logger.Infof("%s[job(%d/%d): %s] start", cfg.Parent, cfg.Current, cfg.Total, j.Name)
+	if j.Timeout > 0 {
+		j.logger.Infof("%s[job(%d/%d): %s] timeout: %d seconds", cfg.Parent, cfg.Current, cfg.Total, j.Name, j.Timeout)
+	}
 	defer j.logger.Infof("%s[job(%d/%d): %s] done", cfg.Parent, cfg.Current, cfg.Total, j.Name)
+
+	// Create context with timeout for job
+	var cancel context.CancelFunc
+	if j.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(j.Timeout)*time.Second)
+		defer cancel()
+	}
 
 	for i, s := range j.Steps {
 		err := s.Run(ctx, func(c *step.RunConfig) {
@@ -42,6 +53,10 @@ func (j *Job) Run(ctx context.Context, opts ...RunOption) error {
 			j.State.Status = "failed"
 			j.State.Error = err.Error()
 			j.State.FailedAt = time.Now()
+			// Check if error is due to context timeout
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				j.State.Error = fmt.Sprintf("job timeout after %d seconds: %s", j.Timeout, err.Error())
+			}
 			return err
 		}
 	}

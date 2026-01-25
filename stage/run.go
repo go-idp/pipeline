@@ -2,6 +2,7 @@ package stage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -30,7 +31,17 @@ func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
 	}
 
 	s.logger.Infof("%s[stage(%d/%d): %s] start", cfg.Parent, cfg.Current, cfg.Total, s.Name)
+	if s.Timeout > 0 {
+		s.logger.Infof("%s[stage(%d/%d): %s] timeout: %d seconds", cfg.Parent, cfg.Current, cfg.Total, s.Name, s.Timeout)
+	}
 	defer s.logger.Infof("%s[stage(%d/%d): %s] done", cfg.Parent, cfg.Current, cfg.Total, s.Name)
+
+	// Create context with timeout for stage
+	var cancel context.CancelFunc
+	if s.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(s.Timeout)*time.Second)
+		defer cancel()
+	}
 
 	// job run mode
 	//	serial: run jobs in serial => one by one
@@ -49,6 +60,10 @@ func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
 				s.State.Status = "failed"
 				s.State.Error = err.Error()
 				s.State.FailedAt = time.Now()
+				// Check if error is due to context timeout
+				if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+					s.State.Error = fmt.Sprintf("stage timeout after %d seconds: %s", s.Timeout, err.Error())
+				}
 				return err
 			}
 		}
@@ -72,6 +87,10 @@ func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
 			s.State.Status = "failed"
 			s.State.Error = err.Error()
 			s.State.FailedAt = time.Now()
+			// Check if error is due to context timeout
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				s.State.Error = fmt.Sprintf("stage timeout after %d seconds: %s", s.Timeout, err.Error())
+			}
 			return err
 		}
 	}
