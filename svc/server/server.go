@@ -5,9 +5,10 @@ type Server interface {
 }
 
 type server struct {
-	cfg   *Config
-	store Store
-	queue Queue
+	cfg         *Config
+	store       Store
+	queue       Queue
+	configStore ConfigStore
 }
 
 func New(cfg *Config) Server {
@@ -18,10 +19,12 @@ func New(cfg *Config) Server {
 
 	store := NewMemoryStore(cfg.Workdir, 1000) // 最多保存1000条记录
 	queue := NewQueue(maxConcurrent, store, cfg.Workdir, cfg.Environment)
+	configStore := NewMemoryConfigStore(cfg.Workdir)
 
 	return &server{
-		cfg:   cfg,
-		store: store,
-		queue: queue,
+		cfg:         cfg,
+		store:       store,
+		queue:       queue,
+		configStore: configStore,
 	}
 }

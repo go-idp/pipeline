@@ -624,6 +624,77 @@ func (s *server) Run() error {
 				"message": "settings saved (restart required to apply)",
 			})
 		})
+
+		// 配置转换 API
+		// YAML 转可视化配置
+		api.Post("/configs/convert/yaml-to-visual", func(ctx *zoox.Context) {
+			var req struct {
+				YAML string `json:"yaml"`
+			}
+			if err := ctx.BindJSON(&req); err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("invalid request: %s", err),
+				})
+				return
+			}
+
+			if s.configStore == nil {
+				ctx.Status(500)
+				ctx.JSON(500, map[string]string{
+					"error": "config store not initialized",
+				})
+				return
+			}
+
+			visual, err := s.configStore.ConvertYAMLToVisual(req.YAML)
+			if err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("failed to convert YAML to visual: %s", err),
+				})
+				return
+			}
+
+			ctx.JSON(200, map[string]interface{}{
+				"visual": visual,
+			})
+		})
+
+		// 可视化配置转 YAML
+		api.Post("/configs/convert/visual-to-yaml", func(ctx *zoox.Context) {
+			var req struct {
+				Visual map[string]interface{} `json:"visual"`
+			}
+			if err := ctx.BindJSON(&req); err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("invalid request: %s", err),
+				})
+				return
+			}
+
+			if s.configStore == nil {
+				ctx.Status(500)
+				ctx.JSON(500, map[string]string{
+					"error": "config store not initialized",
+				})
+				return
+			}
+
+			yaml, err := s.configStore.ConvertVisualToYAML(req.Visual)
+			if err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("failed to convert visual to YAML: %s", err),
+				})
+				return
+			}
+
+			ctx.JSON(200, map[string]interface{}{
+				"yaml": yaml,
+			})
+		})
 	}
 
 	// Web Console 静态文件

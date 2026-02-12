@@ -957,6 +957,157 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        /* 可视化编辑器样式 */
+        .editor-mode-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .mode-btn {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: color 0.3s;
+        }
+
+        .mode-btn:hover {
+            color: #1f2937;
+        }
+
+        .mode-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .editor-container {
+            display: none;
+        }
+
+        .editor-container.active {
+            display: block;
+        }
+
+        .visual-editor {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .visual-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .visual-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stage-item, .job-item, .step-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+            position: relative;
+        }
+
+        .stage-item {
+            border-left: 3px solid #667eea;
+        }
+
+        .job-item {
+            border-left: 3px solid #10b981;
+            margin-left: 20px;
+        }
+
+        .step-item {
+            border-left: 3px solid #f59e0b;
+            margin-left: 40px;
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .item-title {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-add {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-add:hover {
+            background: #059669;
+        }
+
+        .btn-remove {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-remove:hover {
+            background: #dc2626;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-row.full {
+            grid-template-columns: 1fr;
+        }
+
+        .required {
+            color: #ef4444;
+        }
+
+        .env-vars-editor {
+            min-height: 100px;
+            font-family: monospace;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -1110,18 +1261,28 @@
             </div>
             <div class="drawer-body">
                 <div>
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Pipeline 配置 (YAML):</label>
-                    <textarea id="pipeline-yaml" class="yaml-editor" placeholder="请输入 pipeline YAML 配置...">name: My Pipeline
+                    <!-- 模式切换 -->
+                    <div class="editor-mode-switch">
+                        <button class="mode-btn active" id="mode-visual" onclick="switchEditorMode('visual')">📝 可视化编辑</button>
+                        <button class="mode-btn" id="mode-yaml" onclick="switchEditorMode('yaml')">📄 YAML 编辑</button>
+                    </div>
 
-stages:
-  - name: build
-    jobs:
-      - name: build-job
-        steps:
-          - name: hello
-            command: echo "Hello, Pipeline!"</textarea>
-                    <div class="execute-actions">
+                    <!-- 可视化编辑器 -->
+                    <div id="visual-editor-container" class="editor-container active">
+                        <div class="visual-editor" id="visual-editor">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- YAML 编辑器 -->
+                    <div id="yaml-editor-container" class="editor-container">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Pipeline 配置 (YAML):</label>
+                        <textarea id="pipeline-yaml" class="yaml-editor" placeholder="请输入 pipeline YAML 配置..." oninput="syncYAMLToVisual()"></textarea>
+                    </div>
+
+                    <div class="execute-actions" style="margin-top: 20px;">
                         <button onclick="createPipeline()" id="create-btn">➕ 创建</button>
+                        <button onclick="syncVisualToYAML()" id="sync-btn" class="secondary" style="display: none;">🔄 同步到 YAML</button>
                         <button onclick="closeRunDrawer()" class="secondary">取消</button>
                     </div>
                     <div id="creation-status" class="execution-status" style="display: none;"></div>
@@ -1861,7 +2022,12 @@ stages:
             closePipelineDrawer();
             document.getElementById('drawer-overlay').classList.add('active');
             document.getElementById('run-pipeline-drawer').classList.add('active');
-            document.getElementById('pipeline-yaml').value = `name: My Pipeline
+            
+            // 默认显示可视化编辑器
+            switchEditorMode('visual');
+            
+            // 初始化默认配置
+            const defaultYAML = `name: My Pipeline
 
 stages:
   - name: build
@@ -1870,8 +2036,880 @@ stages:
         steps:
           - name: hello
             command: echo "Hello, Pipeline!"`;
+            document.getElementById('pipeline-yaml').value = defaultYAML;
+            
+            // 构建可视化表单
+            buildVisualFormFromYAML(defaultYAML);
+            
             document.getElementById('creation-status').style.display = 'none';
             document.getElementById('create-btn').disabled = false;
+        }
+
+        // 模式切换
+        function switchEditorMode(mode) {
+            const visualContainer = document.getElementById('visual-editor-container');
+            const yamlContainer = document.getElementById('yaml-editor-container');
+            const visualBtn = document.getElementById('mode-visual');
+            const yamlBtn = document.getElementById('mode-yaml');
+            const syncBtn = document.getElementById('sync-btn');
+
+            if (mode === 'visual') {
+                visualContainer.classList.add('active');
+                yamlContainer.classList.remove('active');
+                visualBtn.classList.add('active');
+                yamlBtn.classList.remove('active');
+                syncBtn.style.display = 'none';
+                
+                // 如果 YAML 有内容，转换为可视化
+                const yaml = document.getElementById('pipeline-yaml').value.trim();
+                if (yaml) {
+                    buildVisualFormFromYAML(yaml);
+                }
+            } else {
+                visualContainer.classList.remove('active');
+                yamlContainer.classList.add('active');
+                visualBtn.classList.remove('active');
+                yamlBtn.classList.add('active');
+                syncBtn.style.display = 'inline-block';
+            }
+        }
+
+        // 从 YAML 构建可视化表单
+        async function buildVisualFormFromYAML(yaml) {
+            if (!yaml.trim()) {
+                buildEmptyVisualForm();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/configs/convert/yaml-to-visual`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ yaml: yaml }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('转换失败');
+                }
+
+                const data = await response.json();
+                buildVisualForm(data.visual);
+            } catch (error) {
+                console.error('Failed to convert YAML to visual:', error);
+                showNotification('error', '转换失败', error.message);
+            }
+        }
+
+        // 构建空的可视化表单
+        function buildEmptyVisualForm() {
+            const visual = {
+                name: '',
+                workdir: '',
+                image: '',
+                timeout: '',
+                env: {},
+                stages: []
+            };
+            buildVisualForm(visual);
+        }
+
+        // 构建可视化表单
+        function buildVisualForm(visual) {
+            const container = document.getElementById('visual-editor');
+            if (!visual) {
+                visual = { name: '', stages: [] };
+            }
+
+            let html = `
+                <div class="visual-section">
+                    <div class="visual-section-title">Pipeline 基本信息</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">名称 <span class="required">*</span></label>
+                            <input type="text" id="visual-name" class="form-input" value="${escapeHtml(visual.name || '')}" placeholder="Pipeline 名称">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">工作目录</label>
+                            <input type="text" id="visual-workdir" class="form-input" value="${escapeHtml(visual.workdir || '')}" placeholder="工作目录路径">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">默认镜像</label>
+                            <input type="text" id="visual-image" class="form-input" value="${escapeHtml(visual.image || '')}" placeholder="docker 镜像">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">超时时间（秒）</label>
+                            <input type="number" id="visual-timeout" class="form-input" value="${visual.timeout || ''}" placeholder="超时时间">
+                        </div>
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label class="form-label">环境变量（每行一个，格式：KEY=VALUE）</label>
+                            <textarea id="visual-env" class="form-input env-vars-editor" placeholder="KEY1=VALUE1&#10;KEY2=VALUE2">${formatEnvVars(visual.environment || {})}</textarea>
+                        </div>
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label class="form-label">Pre Hook（执行前的命令）</label>
+                            <textarea id="visual-pre" class="form-input env-vars-editor" placeholder="echo 'Pre hook'">${escapeHtml(visual.pre || '')}</textarea>
+                        </div>
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label class="form-label">Post Hook（执行后的命令）</label>
+                            <textarea id="visual-post" class="form-input env-vars-editor" placeholder="echo 'Post hook'">${escapeHtml(visual.post || '')}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="visual-section">
+                    <div class="visual-section-title">
+                        Stages 配置
+                        <button class="btn-small btn-add" onclick="addStage()">➕ 添加 Stage</button>
+                    </div>
+                    <div id="stages-container">
+            `;
+
+            const stages = visual.stages || [];
+            if (stages.length === 0) {
+                html += '<div style="color: #6b7280; padding: 20px; text-align: center;">暂无 Stage，点击上方按钮添加</div>';
+            } else {
+                stages.forEach((stage, stageIdx) => {
+                    html += buildStageForm(stage, stageIdx);
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // 构建 Stage 表单
+        function buildStageForm(stage, stageIdx) {
+            if (!stage) stage = { name: '', mode: 'parallel', jobs: [] };
+            
+            let html = `
+                <div class="stage-item" data-stage-index="${stageIdx}">
+                    <div class="item-header">
+                        <div class="item-title">Stage ${stageIdx + 1}</div>
+                        <div class="item-actions">
+                            <button class="btn-small btn-add" onclick="addJob(${stageIdx})">➕ 添加 Job</button>
+                            <button class="btn-small btn-remove" onclick="removeStage(${stageIdx})">🗑️ 删除</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">名称 <span class="required">*</span></label>
+                            <input type="text" class="form-input" data-stage-field="name" value="${escapeHtml(stage.name || '')}" placeholder="Stage 名称">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">执行模式</label>
+                            <select class="form-input" data-stage-field="mode">
+                                <option value="parallel" ${stage.mode === 'parallel' || stage.run_mode === 'parallel' ? 'selected' : ''}>并行</option>
+                                <option value="serial" ${stage.mode === 'serial' || stage.run_mode === 'serial' ? 'selected' : ''}>串行</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">工作目录</label>
+                            <input type="text" class="form-input" data-stage-field="workdir" value="${escapeHtml(stage.workdir || '')}" placeholder="工作目录路径">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">镜像</label>
+                            <input type="text" class="form-input" data-stage-field="image" value="${escapeHtml(stage.image || '')}" placeholder="docker 镜像">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">超时时间（秒）</label>
+                            <input type="number" class="form-input" data-stage-field="timeout" value="${stage.timeout || ''}" placeholder="超时时间">
+                        </div>
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label class="form-label">环境变量（每行一个，格式：KEY=VALUE）</label>
+                            <textarea class="form-input env-vars-editor" data-stage-field="env" placeholder="KEY1=VALUE1&#10;KEY2=VALUE2">${formatEnvVars(stage.environment || {})}</textarea>
+                        </div>
+                    </div>
+                    <div id="jobs-container-${stageIdx}">
+            `;
+
+            const jobs = stage.jobs || [];
+            if (jobs.length === 0) {
+                html += '<div style="color: #6b7280; padding: 10px; text-align: center; font-size: 13px;">暂无 Job，点击上方按钮添加</div>';
+            } else {
+                jobs.forEach((job, jobIdx) => {
+                    html += buildJobForm(stageIdx, job, jobIdx);
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            return html;
+        }
+
+        // 构建 Job 表单
+        function buildJobForm(stageIdx, job, jobIdx) {
+            if (!job) job = { name: '', image: '', steps: [] };
+            
+            let html = `
+                <div class="job-item" data-stage-index="${stageIdx}" data-job-index="${jobIdx}">
+                    <div class="item-header">
+                        <div class="item-title">Job ${jobIdx + 1}</div>
+                        <div class="item-actions">
+                            <button class="btn-small btn-add" onclick="addStep(${stageIdx}, ${jobIdx})">➕ 添加 Step</button>
+                            <button class="btn-small btn-remove" onclick="removeJob(${stageIdx}, ${jobIdx})">🗑️ 删除</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">名称 <span class="required">*</span></label>
+                            <input type="text" class="form-input" data-job-field="name" value="${escapeHtml(job.name || '')}" placeholder="Job 名称">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">镜像</label>
+                            <input type="text" class="form-input" data-job-field="image" value="${escapeHtml(job.image || '')}" placeholder="docker 镜像">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">工作目录</label>
+                            <input type="text" class="form-input" data-job-field="workdir" value="${escapeHtml(job.workdir || '')}" placeholder="工作目录路径">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">超时时间（秒）</label>
+                            <input type="number" class="form-input" data-job-field="timeout" value="${job.timeout || ''}" placeholder="超时时间">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">镜像仓库</label>
+                            <input type="text" class="form-input" data-job-field="image_registry" value="${escapeHtml(job.image_registry || '')}" placeholder="docker.io">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">镜像仓库用户名</label>
+                            <input type="text" class="form-input" data-job-field="image_registry_username" value="${escapeHtml(job.image_registry_username || '')}" placeholder="用户名">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">镜像仓库密码</label>
+                            <input type="password" class="form-input" data-job-field="image_registry_password" value="${escapeHtml(job.image_registry_password || '')}" placeholder="密码">
+                        </div>
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label class="form-label">环境变量（每行一个，格式：KEY=VALUE）</label>
+                            <textarea class="form-input env-vars-editor" data-job-field="env" placeholder="KEY1=VALUE1&#10;KEY2=VALUE2">${formatEnvVars(job.environment || {})}</textarea>
+                        </div>
+                    </div>
+                    <div id="steps-container-${stageIdx}-${jobIdx}">
+            `;
+
+            const steps = job.steps || [];
+            if (steps.length === 0) {
+                html += '<div style="color: #6b7280; padding: 10px; text-align: center; font-size: 13px;">暂无 Step，点击上方按钮添加</div>';
+            } else {
+                steps.forEach((step, stepIdx) => {
+                    html += buildStepForm(stageIdx, jobIdx, step, stepIdx);
+                });
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            return html;
+        }
+
+        // 构建 Step 表单
+        function buildStepForm(stageIdx, jobIdx, step, stepIdx) {
+            if (!step) step = { name: '', command: '' };
+            
+            return `
+                <div class="step-item" data-stage-index="${stageIdx}" data-job-index="${jobIdx}" data-step-index="${stepIdx}">
+                    <div class="item-header">
+                        <div class="item-title">Step ${stepIdx + 1}</div>
+                        <div class="item-actions">
+                            <button class="btn-small btn-remove" onclick="removeStep(${stageIdx}, ${jobIdx}, ${stepIdx})">🗑️ 删除</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">名称 <span class="required">*</span></label>
+                            <input type="text" class="form-input" data-step-field="name" value="${escapeHtml(step.name || '')}" placeholder="Step 名称">
+                        </div>
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label class="form-label">命令 <span class="required">*</span></label>
+                            <textarea class="form-input env-vars-editor" data-step-field="command" placeholder="执行的命令（支持多行脚本）">${escapeHtml(step.command || '')}</textarea>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">执行引擎</label>
+                            <select class="form-input" data-step-field="engine">
+                                <option value="">默认</option>
+                                <option value="docker" ${step.engine === 'docker' ? 'selected' : ''}>Docker</option>
+                                <option value="local" ${step.engine === 'local' ? 'selected' : ''}>Local</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">镜像</label>
+                            <input type="text" class="form-input" data-step-field="image" value="${escapeHtml(step.image || '')}" placeholder="docker 镜像">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Shell</label>
+                            <input type="text" class="form-input" data-step-field="shell" value="${escapeHtml(step.shell || '')}" placeholder="shell 路径">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">工作目录</label>
+                            <input type="text" class="form-input" data-step-field="workdir" value="${escapeHtml(step.workdir || '')}" placeholder="工作目录">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">超时时间（秒）</label>
+                            <input type="number" class="form-input" data-step-field="timeout" value="${step.timeout || ''}" placeholder="超时时间">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">镜像仓库</label>
+                            <input type="text" class="form-input" data-step-field="image_registry" value="${escapeHtml(step.image_registry || '')}" placeholder="docker.io">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">镜像仓库用户名</label>
+                            <input type="text" class="form-input" data-step-field="image_registry_username" value="${escapeHtml(step.image_registry_username || '')}" placeholder="用户名">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">镜像仓库密码</label>
+                            <input type="password" class="form-input" data-step-field="image_registry_password" value="${escapeHtml(step.image_registry_password || '')}" placeholder="密码">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">数据目录（内部）</label>
+                            <input type="text" class="form-input" data-step-field="data_dir_inner" value="${escapeHtml(step.data_dir_inner || '')}" placeholder="容器内数据目录">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">数据目录（外部）</label>
+                            <input type="text" class="form-input" data-step-field="data_dir_outer" value="${escapeHtml(step.data_dir_outer || '')}" placeholder="宿主机数据目录">
+                        </div>
+                    </div>
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label class="form-label">环境变量（每行一个，格式：KEY=VALUE）</label>
+                            <textarea class="form-input env-vars-editor" data-step-field="env" placeholder="KEY1=VALUE1&#10;KEY2=VALUE2">${formatEnvVars(step.environment || {})}</textarea>
+                        </div>
+                    </div>
+                    <div class="form-row full" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                        <div class="form-group">
+                            <label class="form-label" style="font-weight: 600; margin-bottom: 10px;">高级配置（可选）</label>
+                            <div style="margin-bottom: 15px; padding: 10px; background: #f9fafb; border-radius: 4px;">
+                                <div style="font-weight: 600; margin-bottom: 8px;">Plugin 配置</div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Plugin 镜像</label>
+                                        <input type="text" class="form-input" data-step-field="plugin_image" value="${escapeHtml((step.plugin && step.plugin.image) || '')}" placeholder="plugin 镜像">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Entrypoint</label>
+                                        <input type="text" class="form-input" data-step-field="plugin_entrypoint" value="${escapeHtml((step.plugin && step.plugin.entrypoint) || '')}" placeholder="/pipeline/plugin/run">
+                                    </div>
+                                </div>
+                                <div class="form-row full">
+                                    <div class="form-group">
+                                        <label class="form-label">Plugin 设置（每行一个，格式：KEY=VALUE）</label>
+                                        <textarea class="form-input env-vars-editor" data-step-field="plugin_settings" placeholder="KEY1=VALUE1&#10;KEY2=VALUE2">${formatEnvVars((step.plugin && step.plugin.settings) || {})}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 15px; padding: 10px; background: #f9fafb; border-radius: 4px;">
+                                <div style="font-weight: 600; margin-bottom: 8px;">Language 配置</div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">语言名称</label>
+                                        <input type="text" class="form-input" data-step-field="language_name" value="${escapeHtml((step.language && step.language.name) || '')}" placeholder="node, go, python">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">语言版本</label>
+                                        <input type="text" class="form-input" data-step-field="language_version" value="${escapeHtml((step.language && step.language.version) || '')}" placeholder="12, 1.20, 3.10">
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 15px; padding: 10px; background: #f9fafb; border-radius: 4px;">
+                                <div style="font-weight: 600; margin-bottom: 8px;">Service 配置</div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Service 类型</label>
+                                        <select class="form-input" data-step-field="service_type">
+                                            <option value="">请选择</option>
+                                            <option value="docker-compose" ${(step.service && step.service.type === 'docker-compose') ? 'selected' : ''}>Docker Compose</option>
+                                            <option value="docker-swarm" ${(step.service && step.service.type === 'docker-swarm') ? 'selected' : ''}>Docker Swarm</option>
+                                            <option value="kubernetes" ${(step.service && step.service.type === 'kubernetes') ? 'selected' : ''}>Kubernetes</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Service 名称</label>
+                                        <input type="text" class="form-input" data-step-field="service_name" value="${escapeHtml((step.service && step.service.name) || '')}" placeholder="服务名称">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Service 版本</label>
+                                        <input type="text" class="form-input" data-step-field="service_version" value="${escapeHtml((step.service && step.service.version) || '')}" placeholder="v1">
+                                    </div>
+                                </div>
+                                <div class="form-row full">
+                                    <div class="form-group">
+                                        <label class="form-label">Service 配置（YAML）</label>
+                                        <textarea class="form-input env-vars-editor" data-step-field="service_config" placeholder="Service 配置内容">${escapeHtml((step.service && step.service.config) || '')}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 从可视化表单收集数据
+        function getVisualConfig() {
+            const config = {
+                name: document.getElementById('visual-name').value.trim(),
+                workdir: document.getElementById('visual-workdir').value.trim() || undefined,
+                image: document.getElementById('visual-image').value.trim() || undefined,
+                timeout: document.getElementById('visual-timeout').value.trim() || undefined,
+                environment: parseEnvVars(document.getElementById('visual-env').value),
+                pre: document.getElementById('visual-pre').value.trim() || undefined,
+                post: document.getElementById('visual-post').value.trim() || undefined,
+                stages: []
+            };
+
+            // 收集 Stages
+            const stageItems = document.querySelectorAll('.stage-item');
+            stageItems.forEach((stageItem, stageIdx) => {
+                const stage = {
+                    name: stageItem.querySelector('[data-stage-field="name"]').value.trim(),
+                    run_mode: stageItem.querySelector('[data-stage-field="mode"]').value || 'parallel',
+                    jobs: []
+                };
+
+                // 收集 Stage 其他字段
+                const workdir = stageItem.querySelector('[data-stage-field="workdir"]').value.trim();
+                if (workdir) stage.workdir = workdir;
+
+                const image = stageItem.querySelector('[data-stage-field="image"]').value.trim();
+                if (image) stage.image = image;
+
+                const timeout = stageItem.querySelector('[data-stage-field="timeout"]').value.trim();
+                if (timeout) stage.timeout = parseInt(timeout) || undefined;
+
+                // 收集 Stage 环境变量
+                const stageEnvTextarea = stageItem.querySelector('[data-stage-field="env"]');
+                if (stageEnvTextarea) {
+                    const env = parseEnvVars(stageEnvTextarea.value);
+                    if (Object.keys(env).length > 0) {
+                        stage.environment = env;
+                    }
+                }
+
+                // 收集 Jobs
+                const jobItems = stageItem.querySelectorAll(`.job-item[data-stage-index="${stageIdx}"]`);
+                jobItems.forEach((jobItem, jobIdx) => {
+                    const job = {
+                        name: jobItem.querySelector('[data-job-field="name"]').value.trim(),
+                        image: jobItem.querySelector('[data-job-field="image"]').value.trim() || undefined,
+                        steps: []
+                    };
+
+                    // 收集 Job 其他字段
+                    const workdir = jobItem.querySelector('[data-job-field="workdir"]').value.trim();
+                    if (workdir) job.workdir = workdir;
+
+                    const timeout = jobItem.querySelector('[data-job-field="timeout"]').value.trim();
+                    if (timeout) job.timeout = parseInt(timeout) || undefined;
+
+                    const imageRegistry = jobItem.querySelector('[data-job-field="image_registry"]').value.trim();
+                    if (imageRegistry) job.image_registry = imageRegistry;
+
+                    const imageRegistryUsername = jobItem.querySelector('[data-job-field="image_registry_username"]').value.trim();
+                    if (imageRegistryUsername) job.image_registry_username = imageRegistryUsername;
+
+                    const imageRegistryPassword = jobItem.querySelector('[data-job-field="image_registry_password"]').value.trim();
+                    if (imageRegistryPassword) job.image_registry_password = imageRegistryPassword;
+
+                    // 收集 Job 环境变量
+                    const jobEnvTextarea = jobItem.querySelector('[data-job-field="env"]');
+                    if (jobEnvTextarea) {
+                        const env = parseEnvVars(jobEnvTextarea.value);
+                        if (Object.keys(env).length > 0) {
+                            job.environment = env;
+                        }
+                    }
+
+                    // 收集 Steps
+                    const stepItems = jobItem.querySelectorAll(`.step-item[data-stage-index="${stageIdx}"][data-job-index="${jobIdx}"]`);
+                    stepItems.forEach((stepItem) => {
+                        const step = {
+                            name: stepItem.querySelector('[data-step-field="name"]').value.trim(),
+                            command: stepItem.querySelector('[data-step-field="command"]').value.trim(),
+                        };
+
+                        const engine = stepItem.querySelector('[data-step-field="engine"]').value.trim();
+                        if (engine) step.engine = engine;
+
+                        const image = stepItem.querySelector('[data-step-field="image"]').value.trim();
+                        if (image) step.image = image;
+
+                        const shell = stepItem.querySelector('[data-step-field="shell"]').value.trim();
+                        if (shell) step.shell = shell;
+
+                        const workdir = stepItem.querySelector('[data-step-field="workdir"]').value.trim();
+                        if (workdir) step.workdir = workdir;
+
+                        const timeout = stepItem.querySelector('[data-step-field="timeout"]').value.trim();
+                        if (timeout) step.timeout = parseInt(timeout) || undefined;
+
+                        const imageRegistry = stepItem.querySelector('[data-step-field="image_registry"]').value.trim();
+                        if (imageRegistry) step.image_registry = imageRegistry;
+
+                        const imageRegistryUsername = stepItem.querySelector('[data-step-field="image_registry_username"]').value.trim();
+                        if (imageRegistryUsername) step.image_registry_username = imageRegistryUsername;
+
+                        const imageRegistryPassword = stepItem.querySelector('[data-step-field="image_registry_password"]').value.trim();
+                        if (imageRegistryPassword) step.image_registry_password = imageRegistryPassword;
+
+                        const dataDirInner = stepItem.querySelector('[data-step-field="data_dir_inner"]').value.trim();
+                        if (dataDirInner) step.data_dir_inner = dataDirInner;
+
+                        const dataDirOuter = stepItem.querySelector('[data-step-field="data_dir_outer"]').value.trim();
+                        if (dataDirOuter) step.data_dir_outer = dataDirOuter;
+
+                        // 收集 Step 环境变量
+                        const stepEnvTextarea = stepItem.querySelector('[data-step-field="env"]');
+                        if (stepEnvTextarea) {
+                            const env = parseEnvVars(stepEnvTextarea.value);
+                            if (Object.keys(env).length > 0) {
+                                step.environment = env;
+                            }
+                        }
+
+                        // 收集 Plugin 配置
+                        const pluginImage = stepItem.querySelector('[data-step-field="plugin_image"]');
+                        const pluginEntrypoint = stepItem.querySelector('[data-step-field="plugin_entrypoint"]');
+                        const pluginSettings = stepItem.querySelector('[data-step-field="plugin_settings"]');
+                        if (pluginImage && pluginImage.value.trim()) {
+                            step.plugin = {
+                                image: pluginImage.value.trim(),
+                                entrypoint: pluginEntrypoint ? pluginEntrypoint.value.trim() || '/pipeline/plugin/run' : '/pipeline/plugin/run',
+                                settings: pluginSettings ? parseEnvVars(pluginSettings.value) : {}
+                            };
+                        }
+
+                        // 收集 Language 配置
+                        const languageName = stepItem.querySelector('[data-step-field="language_name"]');
+                        const languageVersion = stepItem.querySelector('[data-step-field="language_version"]');
+                        if (languageName && languageName.value.trim()) {
+                            step.language = {
+                                name: languageName.value.trim(),
+                                version: languageVersion ? languageVersion.value.trim() : ''
+                            };
+                        }
+
+                        // 收集 Service 配置
+                        const serviceType = stepItem.querySelector('[data-step-field="service_type"]');
+                        const serviceName = stepItem.querySelector('[data-step-field="service_name"]');
+                        const serviceVersion = stepItem.querySelector('[data-step-field="service_version"]');
+                        const serviceConfig = stepItem.querySelector('[data-step-field="service_config"]');
+                        if (serviceType && serviceType.value.trim()) {
+                            step.service = {
+                                type: serviceType.value.trim(),
+                                name: serviceName ? serviceName.value.trim() : '',
+                                version: serviceVersion ? serviceVersion.value.trim() : '',
+                                config: serviceConfig ? serviceConfig.value.trim() : ''
+                            };
+                        }
+
+                        job.steps.push(step);
+                    });
+
+                    stage.jobs.push(job);
+                });
+
+                config.stages.push(stage);
+            });
+
+            // 清理空值
+            Object.keys(config).forEach(key => {
+                if (config[key] === undefined || (Array.isArray(config[key]) && config[key].length === 0)) {
+                    delete config[key];
+                }
+            });
+
+            // 清理空的环境变量对象
+            if (config.environment && Object.keys(config.environment).length === 0) {
+                delete config.environment;
+            }
+
+            // 递归清理 stages 中的空环境变量
+            config.stages.forEach(stage => {
+                if (stage.environment && Object.keys(stage.environment).length === 0) {
+                    delete stage.environment;
+                }
+                stage.jobs.forEach(job => {
+                    if (job.environment && Object.keys(job.environment).length === 0) {
+                        delete job.environment;
+                    }
+                    job.steps.forEach(step => {
+                        if (step.environment && Object.keys(step.environment).length === 0) {
+                            delete step.environment;
+                        }
+                    });
+                });
+            });
+
+            return config;
+        }
+
+        // 解析环境变量
+        function parseEnvVars(text) {
+            const env = {};
+            if (!text) return env;
+            
+            text.split('\n').forEach(line => {
+                line = line.trim();
+                if (!line || line.startsWith('#')) return;
+                
+                const idx = line.indexOf('=');
+                if (idx > 0) {
+                    const key = line.substring(0, idx).trim();
+                    const value = line.substring(idx + 1).trim();
+                    if (key) {
+                        env[key] = value;
+                    }
+                }
+            });
+            
+            return env;
+        }
+
+        // 格式化环境变量
+        function formatEnvVars(env) {
+            if (!env || Object.keys(env).length === 0) return '';
+            return Object.entries(env).map(([k, v]) => `${k}=${v}`).join('\n');
+        }
+
+        // 同步可视化配置到 YAML
+        async function syncVisualToYAML() {
+            const visual = getVisualConfig();
+            
+            // 验证必填项
+            if (!visual.name) {
+                showNotification('error', '验证失败', 'Pipeline 名称不能为空');
+                return;
+            }
+
+            if (!visual.stages || visual.stages.length === 0) {
+                showNotification('error', '验证失败', '至少需要添加一个 Stage');
+                return;
+            }
+
+            for (const stage of visual.stages) {
+                if (!stage.name) {
+                    showNotification('error', '验证失败', 'Stage 名称不能为空');
+                    return;
+                }
+                if (!stage.jobs || stage.jobs.length === 0) {
+                    showNotification('error', '验证失败', '每个 Stage 至少需要添加一个 Job');
+                    return;
+                }
+                for (const job of stage.jobs) {
+                    if (!job.name) {
+                        showNotification('error', '验证失败', 'Job 名称不能为空');
+                        return;
+                    }
+                    if (!job.steps || job.steps.length === 0) {
+                        showNotification('error', '验证失败', '每个 Job 至少需要添加一个 Step');
+                        return;
+                    }
+                    for (const step of job.steps) {
+                        if (!step.name || !step.command) {
+                            showNotification('error', '验证失败', 'Step 名称和命令不能为空');
+                            return;
+                        }
+                    }
+                }
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/configs/convert/visual-to-yaml`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ visual: visual }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '转换失败');
+                }
+
+                const data = await response.json();
+                document.getElementById('pipeline-yaml').value = data.yaml;
+                showNotification('success', '同步成功', '可视化配置已同步到 YAML');
+            } catch (error) {
+                console.error('Failed to convert visual to YAML:', error);
+                showNotification('error', '转换失败', error.message);
+            }
+        }
+
+        // 同步 YAML 到可视化配置（自动）
+        async function syncYAMLToVisual() {
+            // 只在可视化模式下自动同步
+            const visualContainer = document.getElementById('visual-editor-container');
+            if (!visualContainer.classList.contains('active')) {
+                return;
+            }
+
+            const yaml = document.getElementById('pipeline-yaml').value.trim();
+            if (!yaml) {
+                buildEmptyVisualForm();
+                return;
+            }
+
+            // 防抖处理
+            if (window.syncYAMLTimeout) {
+                clearTimeout(window.syncYAMLTimeout);
+            }
+            window.syncYAMLTimeout = setTimeout(() => {
+                buildVisualFormFromYAML(yaml);
+            }, 500);
+        }
+
+        // 添加 Stage
+        function addStage() {
+            const container = document.getElementById('stages-container');
+            const stageIdx = container.querySelectorAll('.stage-item').length;
+            const newStage = { name: '', mode: 'parallel', jobs: [] };
+            const html = buildStageForm(newStage, stageIdx);
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        // 删除 Stage
+        function removeStage(stageIdx) {
+            const stageItem = document.querySelector(`.stage-item[data-stage-index="${stageIdx}"]`);
+            if (stageItem && confirm('确定要删除这个 Stage 吗？')) {
+                stageItem.remove();
+                // 重新编号
+                reindexStages();
+            }
+        }
+
+        // 添加 Job
+        function addJob(stageIdx) {
+            const container = document.getElementById(`jobs-container-${stageIdx}`);
+            const jobIdx = container.querySelectorAll('.job-item').length;
+            const newJob = { name: '', image: '', steps: [] };
+            const html = buildJobForm(stageIdx, newJob, jobIdx);
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        // 删除 Job
+        function removeJob(stageIdx, jobIdx) {
+            const jobItem = document.querySelector(`.job-item[data-stage-index="${stageIdx}"][data-job-index="${jobIdx}"]`);
+            if (jobItem && confirm('确定要删除这个 Job 吗？')) {
+                jobItem.remove();
+                reindexJobs(stageIdx);
+            }
+        }
+
+        // 添加 Step
+        function addStep(stageIdx, jobIdx) {
+            const container = document.getElementById(`steps-container-${stageIdx}-${jobIdx}`);
+            const stepIdx = container.querySelectorAll('.step-item').length;
+            const newStep = { name: '', command: '' };
+            const html = buildStepForm(stageIdx, jobIdx, newStep, stepIdx);
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+        // 删除 Step
+        function removeStep(stageIdx, jobIdx, stepIdx) {
+            const stepItem = document.querySelector(`.step-item[data-stage-index="${stageIdx}"][data-job-index="${jobIdx}"][data-step-index="${stepIdx}"]`);
+            if (stepItem && confirm('确定要删除这个 Step 吗？')) {
+                stepItem.remove();
+                reindexSteps(stageIdx, jobIdx);
+            }
+        }
+
+        // 重新编号 Stages
+        function reindexStages() {
+            const stageItems = document.querySelectorAll('.stage-item');
+            stageItems.forEach((item, idx) => {
+                item.setAttribute('data-stage-index', idx);
+                item.querySelector('.item-title').textContent = `Stage ${idx + 1}`;
+                // 更新按钮的 onclick
+                const addJobBtn = item.querySelector('.btn-add');
+                if (addJobBtn) {
+                    addJobBtn.setAttribute('onclick', `addJob(${idx})`);
+                }
+                const removeBtn = item.querySelector('.btn-remove');
+                if (removeBtn) {
+                    removeBtn.setAttribute('onclick', `removeStage(${idx})`);
+                }
+                // 重新编号 Jobs
+                reindexJobs(idx);
+            });
+        }
+
+        // 重新编号 Jobs
+        function reindexJobs(stageIdx) {
+            const jobItems = document.querySelectorAll(`.job-item[data-stage-index="${stageIdx}"]`);
+            jobItems.forEach((item, idx) => {
+                item.setAttribute('data-job-index', idx);
+                item.querySelector('.item-title').textContent = `Job ${idx + 1}`;
+                // 更新按钮的 onclick
+                const addStepBtn = item.querySelector('.btn-add');
+                if (addStepBtn) {
+                    addStepBtn.setAttribute('onclick', `addStep(${stageIdx}, ${idx})`);
+                }
+                const removeBtn = item.querySelector('.btn-remove');
+                if (removeBtn) {
+                    removeBtn.setAttribute('onclick', `removeJob(${stageIdx}, ${idx})`);
+                }
+                // 重新编号 Steps
+                reindexSteps(stageIdx, idx);
+            });
+        }
+
+        // 重新编号 Steps
+        function reindexSteps(stageIdx, jobIdx) {
+            const stepItems = document.querySelectorAll(`.step-item[data-stage-index="${stageIdx}"][data-job-index="${jobIdx}"]`);
+            stepItems.forEach((item, idx) => {
+                item.setAttribute('data-step-index', idx);
+                item.querySelector('.item-title').textContent = `Step ${idx + 1}`;
+                // 更新按钮的 onclick
+                const removeBtn = item.querySelector('.btn-remove');
+                if (removeBtn) {
+                    removeBtn.setAttribute('onclick', `removeStep(${stageIdx}, ${jobIdx}, ${idx})`);
+                }
+            });
         }
 
         // 关闭创建 Drawer
@@ -1881,9 +2919,21 @@ stages:
 
         // 创建 Pipeline（加入队列）
         async function createPipeline() {
-            const yaml = document.getElementById('pipeline-yaml').value.trim();
+            let yaml = '';
+            
+            // 检查当前模式
+            const visualContainer = document.getElementById('visual-editor-container');
+            if (visualContainer.classList.contains('active')) {
+                // 可视化模式：先转换为 YAML
+                await syncVisualToYAML();
+                yaml = document.getElementById('pipeline-yaml').value.trim();
+            } else {
+                // YAML 模式：直接获取
+                yaml = document.getElementById('pipeline-yaml').value.trim();
+            }
+            
             if (!yaml) {
-                alert('请输入 Pipeline 配置');
+                showNotification('error', '创建失败', '请输入 Pipeline 配置');
                 return;
             }
 
