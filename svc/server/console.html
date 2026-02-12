@@ -1070,6 +1070,12 @@
             transition: background 0.2s;
         }
 
+        .btn-small:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
         .btn-add {
             background: #10b981;
             color: white;
@@ -1107,6 +1113,69 @@
             min-height: 100px;
             font-family: monospace;
             font-size: 13px;
+        }
+
+        /* 拖拽相关样式 */
+        .drag-handle {
+            cursor: move;
+            color: #6b7280;
+            font-size: 18px;
+            padding: 5px 10px;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            pointer-events: none;
+        }
+
+        .drag-handle:hover {
+            color: #667eea;
+        }
+
+        .stage-item.dragging,
+        .job-item.dragging,
+        .step-item.dragging {
+            opacity: 0.5;
+            border: 2px dashed #667eea;
+        }
+
+        .stage-item.drag-over,
+        .job-item.drag-over,
+        .step-item.drag-over {
+            border-top: 3px solid #667eea;
+            margin-top: 10px;
+        }
+
+        .stage-item.drag-over-bottom,
+        .job-item.drag-over-bottom,
+        .step-item.drag-over-bottom {
+            border-bottom: 3px solid #667eea;
+            margin-bottom: 10px;
+        }
+
+        .item-header {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .drag-handle {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+        }
+
+        .item-title {
+            margin-left: 35px;
+            flex: 1;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 10px;
         }
     </style>
 </head>
@@ -2046,7 +2115,7 @@ stages:
         }
 
         // 模式切换
-        function switchEditorMode(mode) {
+        async function switchEditorMode(mode) {
             const visualContainer = document.getElementById('visual-editor-container');
             const yamlContainer = document.getElementById('yaml-editor-container');
             const visualBtn = document.getElementById('mode-visual');
@@ -2063,9 +2132,15 @@ stages:
                 // 如果 YAML 有内容，转换为可视化
                 const yaml = document.getElementById('pipeline-yaml').value.trim();
                 if (yaml) {
-                    buildVisualFormFromYAML(yaml);
+                    await buildVisualFormFromYAML(yaml);
                 }
             } else {
+                // 切换到 YAML 模式时，自动同步可视化编辑器的内容到 YAML
+                if (visualContainer.classList.contains('active')) {
+                    // 当前是可视化模式，需要同步到 YAML
+                    await syncVisualToYAML();
+                }
+                
                 visualContainer.classList.remove('active');
                 yamlContainer.classList.add('active');
                 visualBtn.classList.remove('active');
@@ -2178,7 +2253,7 @@ stages:
                 html += '<div style="color: #6b7280; padding: 20px; text-align: center;">暂无 Stage，点击上方按钮添加</div>';
             } else {
                 stages.forEach((stage, stageIdx) => {
-                    html += buildStageForm(stage, stageIdx);
+                    html += buildStageForm(stage, stageIdx, visual.stages);
                 });
             }
 
@@ -2191,14 +2266,20 @@ stages:
         }
 
         // 构建 Stage 表单
-        function buildStageForm(stage, stageIdx) {
+        function buildStageForm(stage, stageIdx, allStages) {
             if (!stage) stage = { name: '', mode: 'parallel', jobs: [] };
+            
+            const stages = allStages || [];
+            const isFirst = stageIdx === 0;
+            const isLast = stageIdx === stages.length - 1;
             
             let html = `
                 <div class="stage-item" data-stage-index="${stageIdx}">
                     <div class="item-header">
                         <div class="item-title">Stage ${stageIdx + 1}</div>
                         <div class="item-actions">
+                            <button class="btn-small" onclick="moveStageUp(${stageIdx})" style="${isFirst ? 'opacity: 0.5; cursor: not-allowed;' : ''}" title="上移">⬆️</button>
+                            <button class="btn-small" onclick="moveStageDown(${stageIdx})" style="${isLast ? 'opacity: 0.5; cursor: not-allowed;' : ''}" title="下移">⬇️</button>
                             <button class="btn-small btn-add" onclick="addJob(${stageIdx})">➕ 添加 Job</button>
                             <button class="btn-small btn-remove" onclick="removeStage(${stageIdx})">🗑️ 删除</button>
                         </div>
@@ -2246,7 +2327,7 @@ stages:
                 html += '<div style="color: #6b7280; padding: 10px; text-align: center; font-size: 13px;">暂无 Job，点击上方按钮添加</div>';
             } else {
                 jobs.forEach((job, jobIdx) => {
-                    html += buildJobForm(stageIdx, job, jobIdx);
+                    html += buildJobForm(stageIdx, job, jobIdx, stage.jobs);
                 });
             }
 
@@ -2259,14 +2340,20 @@ stages:
         }
 
         // 构建 Job 表单
-        function buildJobForm(stageIdx, job, jobIdx) {
+        function buildJobForm(stageIdx, job, jobIdx, allJobs) {
             if (!job) job = { name: '', image: '', steps: [] };
+            
+            const jobs = allJobs || [];
+            const isFirst = jobIdx === 0;
+            const isLast = jobIdx === jobs.length - 1;
             
             let html = `
                 <div class="job-item" data-stage-index="${stageIdx}" data-job-index="${jobIdx}">
                     <div class="item-header">
                         <div class="item-title">Job ${jobIdx + 1}</div>
                         <div class="item-actions">
+                            <button class="btn-small" onclick="moveJobUp(${stageIdx}, ${jobIdx})" style="${isFirst ? 'opacity: 0.5; cursor: not-allowed;' : ''}" title="上移">⬆️</button>
+                            <button class="btn-small" onclick="moveJobDown(${stageIdx}, ${jobIdx})" style="${isLast ? 'opacity: 0.5; cursor: not-allowed;' : ''}" title="下移">⬇️</button>
                             <button class="btn-small btn-add" onclick="addStep(${stageIdx}, ${jobIdx})">➕ 添加 Step</button>
                             <button class="btn-small btn-remove" onclick="removeJob(${stageIdx}, ${jobIdx})">🗑️ 删除</button>
                         </div>
@@ -2321,7 +2408,7 @@ stages:
                 html += '<div style="color: #6b7280; padding: 10px; text-align: center; font-size: 13px;">暂无 Step，点击上方按钮添加</div>';
             } else {
                 steps.forEach((step, stepIdx) => {
-                    html += buildStepForm(stageIdx, jobIdx, step, stepIdx);
+                    html += buildStepForm(stageIdx, jobIdx, step, stepIdx, job.steps);
                 });
             }
 
@@ -2334,14 +2421,20 @@ stages:
         }
 
         // 构建 Step 表单
-        function buildStepForm(stageIdx, jobIdx, step, stepIdx) {
+        function buildStepForm(stageIdx, jobIdx, step, stepIdx, allSteps) {
             if (!step) step = { name: '', command: '' };
+            
+            const steps = allSteps || [];
+            const isFirst = stepIdx === 0;
+            const isLast = stepIdx === steps.length - 1;
             
             return `
                 <div class="step-item" data-stage-index="${stageIdx}" data-job-index="${jobIdx}" data-step-index="${stepIdx}">
                     <div class="item-header">
                         <div class="item-title">Step ${stepIdx + 1}</div>
                         <div class="item-actions">
+                            <button class="btn-small" onclick="moveStepUp(${stageIdx}, ${jobIdx}, ${stepIdx})" style="${isFirst ? 'opacity: 0.5; cursor: not-allowed;' : ''}" title="上移">⬆️</button>
+                            <button class="btn-small" onclick="moveStepDown(${stageIdx}, ${jobIdx}, ${stepIdx})" style="${isLast ? 'opacity: 0.5; cursor: not-allowed;' : ''}" title="下移">⬇️</button>
                             <button class="btn-small btn-remove" onclick="removeStep(${stageIdx}, ${jobIdx}, ${stepIdx})">🗑️ 删除</button>
                         </div>
                     </div>
@@ -2490,35 +2583,55 @@ stages:
 
         // 从可视化表单收集数据
         function getVisualConfig() {
+            const nameEl = document.getElementById('visual-name');
+            const workdirEl = document.getElementById('visual-workdir');
+            const imageEl = document.getElementById('visual-image');
+            const timeoutEl = document.getElementById('visual-timeout');
+            const envEl = document.getElementById('visual-env');
+            const preEl = document.getElementById('visual-pre');
+            const postEl = document.getElementById('visual-post');
+            
+            if (!nameEl) {
+                console.error('visual-name element not found');
+                return { name: '', stages: [] };
+            }
+            
             const config = {
-                name: document.getElementById('visual-name').value.trim(),
-                workdir: document.getElementById('visual-workdir').value.trim() || undefined,
-                image: document.getElementById('visual-image').value.trim() || undefined,
-                timeout: document.getElementById('visual-timeout').value.trim() || undefined,
-                environment: parseEnvVars(document.getElementById('visual-env').value),
-                pre: document.getElementById('visual-pre').value.trim() || undefined,
-                post: document.getElementById('visual-post').value.trim() || undefined,
+                name: nameEl.value.trim(),
+                workdir: workdirEl ? workdirEl.value.trim() || undefined : undefined,
+                image: imageEl ? imageEl.value.trim() || undefined : undefined,
+                timeout: timeoutEl && timeoutEl.value.trim() ? parseInt(timeoutEl.value.trim()) || undefined : undefined,
+                environment: envEl ? parseEnvVars(envEl.value) : {},
+                pre: preEl ? preEl.value.trim() || undefined : undefined,
+                post: postEl ? postEl.value.trim() || undefined : undefined,
                 stages: []
             };
 
-            // 收集 Stages
+            // 收集 Stages（按照 DOM 顺序，而不是 data-stage-index）
             const stageItems = document.querySelectorAll('.stage-item');
-            stageItems.forEach((stageItem, stageIdx) => {
+            console.log('Found stage items:', stageItems.length);
+            stageItems.forEach((stageItem, domIndex) => {
+                // 从 DOM 元素获取当前索引（可能已经通过上移/下移改变）
+                const currentStageIdx = parseInt(stageItem.getAttribute('data-stage-index')) || domIndex;
+                
                 const stage = {
-                    name: stageItem.querySelector('[data-stage-field="name"]').value.trim(),
-                    run_mode: stageItem.querySelector('[data-stage-field="mode"]').value || 'parallel',
+                    name: stageItem.querySelector('[data-stage-field="name"]')?.value.trim() || '',
+                    run_mode: stageItem.querySelector('[data-stage-field="mode"]')?.value || 'parallel',
                     jobs: []
                 };
 
                 // 收集 Stage 其他字段
-                const workdir = stageItem.querySelector('[data-stage-field="workdir"]').value.trim();
-                if (workdir) stage.workdir = workdir;
+                const workdirEl = stageItem.querySelector('[data-stage-field="workdir"]');
+                if (workdirEl && workdirEl.value.trim()) stage.workdir = workdirEl.value.trim();
 
-                const image = stageItem.querySelector('[data-stage-field="image"]').value.trim();
-                if (image) stage.image = image;
+                const imageEl = stageItem.querySelector('[data-stage-field="image"]');
+                if (imageEl && imageEl.value.trim()) stage.image = imageEl.value.trim();
 
-                const timeout = stageItem.querySelector('[data-stage-field="timeout"]').value.trim();
-                if (timeout) stage.timeout = parseInt(timeout) || undefined;
+                const timeoutEl = stageItem.querySelector('[data-stage-field="timeout"]');
+                if (timeoutEl && timeoutEl.value.trim()) {
+                    const timeoutVal = parseInt(timeoutEl.value.trim());
+                    if (!isNaN(timeoutVal)) stage.timeout = timeoutVal;
+                }
 
                 // 收集 Stage 环境变量
                 const stageEnvTextarea = stageItem.querySelector('[data-stage-field="env"]');
@@ -2529,30 +2642,36 @@ stages:
                     }
                 }
 
-                // 收集 Jobs
-                const jobItems = stageItem.querySelectorAll(`.job-item[data-stage-index="${stageIdx}"]`);
-                jobItems.forEach((jobItem, jobIdx) => {
+                // 收集 Jobs（按照 DOM 顺序，在当前 stage 内部查找所有 job-item）
+                const jobItems = Array.from(stageItem.querySelectorAll('.job-item'));
+                console.log(`Stage ${domIndex}: Found ${jobItems.length} jobs`);
+                jobItems.forEach((jobItem, jobDomIndex) => {
+                    // 从 DOM 元素获取当前索引（用于查找 steps-container）
+                    const currentJobIdx = parseInt(jobItem.getAttribute('data-job-index')) || jobDomIndex;
                     const job = {
-                        name: jobItem.querySelector('[data-job-field="name"]').value.trim(),
-                        image: jobItem.querySelector('[data-job-field="image"]').value.trim() || undefined,
+                        name: jobItem.querySelector('[data-job-field="name"]')?.value.trim() || '',
+                        image: jobItem.querySelector('[data-job-field="image"]')?.value.trim() || undefined,
                         steps: []
                     };
 
                     // 收集 Job 其他字段
-                    const workdir = jobItem.querySelector('[data-job-field="workdir"]').value.trim();
-                    if (workdir) job.workdir = workdir;
+                    const workdirEl = jobItem.querySelector('[data-job-field="workdir"]');
+                    if (workdirEl && workdirEl.value.trim()) job.workdir = workdirEl.value.trim();
 
-                    const timeout = jobItem.querySelector('[data-job-field="timeout"]').value.trim();
-                    if (timeout) job.timeout = parseInt(timeout) || undefined;
+                    const timeoutEl = jobItem.querySelector('[data-job-field="timeout"]');
+                    if (timeoutEl && timeoutEl.value.trim()) {
+                        const timeoutVal = parseInt(timeoutEl.value.trim());
+                        if (!isNaN(timeoutVal)) job.timeout = timeoutVal;
+                    }
 
-                    const imageRegistry = jobItem.querySelector('[data-job-field="image_registry"]').value.trim();
-                    if (imageRegistry) job.image_registry = imageRegistry;
+                    const imageRegistryEl = jobItem.querySelector('[data-job-field="image_registry"]');
+                    if (imageRegistryEl && imageRegistryEl.value.trim()) job.image_registry = imageRegistryEl.value.trim();
 
-                    const imageRegistryUsername = jobItem.querySelector('[data-job-field="image_registry_username"]').value.trim();
-                    if (imageRegistryUsername) job.image_registry_username = imageRegistryUsername;
+                    const imageRegistryUsernameEl = jobItem.querySelector('[data-job-field="image_registry_username"]');
+                    if (imageRegistryUsernameEl && imageRegistryUsernameEl.value.trim()) job.image_registry_username = imageRegistryUsernameEl.value.trim();
 
-                    const imageRegistryPassword = jobItem.querySelector('[data-job-field="image_registry_password"]').value.trim();
-                    if (imageRegistryPassword) job.image_registry_password = imageRegistryPassword;
+                    const imageRegistryPasswordEl = jobItem.querySelector('[data-job-field="image_registry_password"]');
+                    if (imageRegistryPasswordEl && imageRegistryPasswordEl.value.trim()) job.image_registry_password = imageRegistryPasswordEl.value.trim();
 
                     // 收集 Job 环境变量
                     const jobEnvTextarea = jobItem.querySelector('[data-job-field="env"]');
@@ -2563,43 +2682,47 @@ stages:
                         }
                     }
 
-                    // 收集 Steps
-                    const stepItems = jobItem.querySelectorAll(`.step-item[data-stage-index="${stageIdx}"][data-job-index="${jobIdx}"]`);
+                    // 收集 Steps（按照 DOM 顺序，在当前 job 内部查找所有 step-item）
+                    const stepItems = Array.from(jobItem.querySelectorAll('.step-item'));
+                    console.log(`Stage ${domIndex}, Job ${jobDomIndex}: Found ${stepItems.length} steps`);
                     stepItems.forEach((stepItem) => {
                         const step = {
-                            name: stepItem.querySelector('[data-step-field="name"]').value.trim(),
-                            command: stepItem.querySelector('[data-step-field="command"]').value.trim(),
+                            name: stepItem.querySelector('[data-step-field="name"]')?.value.trim() || '',
+                            command: stepItem.querySelector('[data-step-field="command"]')?.value.trim() || '',
                         };
 
-                        const engine = stepItem.querySelector('[data-step-field="engine"]').value.trim();
-                        if (engine) step.engine = engine;
+                        const engineEl = stepItem.querySelector('[data-step-field="engine"]');
+                        if (engineEl && engineEl.value.trim()) step.engine = engineEl.value.trim();
 
-                        const image = stepItem.querySelector('[data-step-field="image"]').value.trim();
-                        if (image) step.image = image;
+                        const imageEl = stepItem.querySelector('[data-step-field="image"]');
+                        if (imageEl && imageEl.value.trim()) step.image = imageEl.value.trim();
 
-                        const shell = stepItem.querySelector('[data-step-field="shell"]').value.trim();
-                        if (shell) step.shell = shell;
+                        const shellEl = stepItem.querySelector('[data-step-field="shell"]');
+                        if (shellEl && shellEl.value.trim()) step.shell = shellEl.value.trim();
 
-                        const workdir = stepItem.querySelector('[data-step-field="workdir"]').value.trim();
-                        if (workdir) step.workdir = workdir;
+                        const workdirEl = stepItem.querySelector('[data-step-field="workdir"]');
+                        if (workdirEl && workdirEl.value.trim()) step.workdir = workdirEl.value.trim();
 
-                        const timeout = stepItem.querySelector('[data-step-field="timeout"]').value.trim();
-                        if (timeout) step.timeout = parseInt(timeout) || undefined;
+                        const timeoutEl = stepItem.querySelector('[data-step-field="timeout"]');
+                        if (timeoutEl && timeoutEl.value.trim()) {
+                            const timeoutVal = parseInt(timeoutEl.value.trim());
+                            if (!isNaN(timeoutVal)) step.timeout = timeoutVal;
+                        }
 
-                        const imageRegistry = stepItem.querySelector('[data-step-field="image_registry"]').value.trim();
-                        if (imageRegistry) step.image_registry = imageRegistry;
+                        const imageRegistryEl = stepItem.querySelector('[data-step-field="image_registry"]');
+                        if (imageRegistryEl && imageRegistryEl.value.trim()) step.image_registry = imageRegistryEl.value.trim();
 
-                        const imageRegistryUsername = stepItem.querySelector('[data-step-field="image_registry_username"]').value.trim();
-                        if (imageRegistryUsername) step.image_registry_username = imageRegistryUsername;
+                        const imageRegistryUsernameEl = stepItem.querySelector('[data-step-field="image_registry_username"]');
+                        if (imageRegistryUsernameEl && imageRegistryUsernameEl.value.trim()) step.image_registry_username = imageRegistryUsernameEl.value.trim();
 
-                        const imageRegistryPassword = stepItem.querySelector('[data-step-field="image_registry_password"]').value.trim();
-                        if (imageRegistryPassword) step.image_registry_password = imageRegistryPassword;
+                        const imageRegistryPasswordEl = stepItem.querySelector('[data-step-field="image_registry_password"]');
+                        if (imageRegistryPasswordEl && imageRegistryPasswordEl.value.trim()) step.image_registry_password = imageRegistryPasswordEl.value.trim();
 
-                        const dataDirInner = stepItem.querySelector('[data-step-field="data_dir_inner"]').value.trim();
-                        if (dataDirInner) step.data_dir_inner = dataDirInner;
+                        const dataDirInnerEl = stepItem.querySelector('[data-step-field="data_dir_inner"]');
+                        if (dataDirInnerEl && dataDirInnerEl.value.trim()) step.data_dir_inner = dataDirInnerEl.value.trim();
 
-                        const dataDirOuter = stepItem.querySelector('[data-step-field="data_dir_outer"]').value.trim();
-                        if (dataDirOuter) step.data_dir_outer = dataDirOuter;
+                        const dataDirOuterEl = stepItem.querySelector('[data-step-field="data_dir_outer"]');
+                        if (dataDirOuterEl && dataDirOuterEl.value.trim()) step.data_dir_outer = dataDirOuterEl.value.trim();
 
                         // 收集 Step 环境变量
                         const stepEnvTextarea = stepItem.querySelector('[data-step-field="env"]');
@@ -2655,8 +2778,14 @@ stages:
                 config.stages.push(stage);
             });
 
-            // 清理空值
+            console.log('Collected config before cleanup:', JSON.stringify(config, null, 2));
+            
+            // 清理空值（但保留 stages 数组，即使为空）
             Object.keys(config).forEach(key => {
+                if (key === 'stages') {
+                    // stages 必须存在，即使为空数组
+                    return;
+                }
                 if (config[key] === undefined || (Array.isArray(config[key]) && config[key].length === 0)) {
                     delete config[key];
                 }
@@ -2718,40 +2847,41 @@ stages:
         // 同步可视化配置到 YAML
         async function syncVisualToYAML() {
             const visual = getVisualConfig();
+            console.log('Collected visual config:', visual);
             
             // 验证必填项
             if (!visual.name) {
                 showNotification('error', '验证失败', 'Pipeline 名称不能为空');
-                return;
+                return false;
             }
 
             if (!visual.stages || visual.stages.length === 0) {
                 showNotification('error', '验证失败', '至少需要添加一个 Stage');
-                return;
+                return false;
             }
 
             for (const stage of visual.stages) {
                 if (!stage.name) {
                     showNotification('error', '验证失败', 'Stage 名称不能为空');
-                    return;
+                    return false;
                 }
                 if (!stage.jobs || stage.jobs.length === 0) {
                     showNotification('error', '验证失败', '每个 Stage 至少需要添加一个 Job');
-                    return;
+                    return false;
                 }
                 for (const job of stage.jobs) {
                     if (!job.name) {
                         showNotification('error', '验证失败', 'Job 名称不能为空');
-                        return;
+                        return false;
                     }
                     if (!job.steps || job.steps.length === 0) {
                         showNotification('error', '验证失败', '每个 Job 至少需要添加一个 Step');
-                        return;
+                        return false;
                     }
                     for (const step of job.steps) {
                         if (!step.name || !step.command) {
                             showNotification('error', '验证失败', 'Step 名称和命令不能为空');
-                            return;
+                            return false;
                         }
                     }
                 }
@@ -2773,10 +2903,13 @@ stages:
 
                 const data = await response.json();
                 document.getElementById('pipeline-yaml').value = data.yaml;
+                console.log('Converted YAML:', data.yaml);
                 showNotification('success', '同步成功', '可视化配置已同步到 YAML');
+                return true;
             } catch (error) {
                 console.error('Failed to convert visual to YAML:', error);
                 showNotification('error', '转换失败', error.message);
+                return false;
             }
         }
 
@@ -2808,8 +2941,12 @@ stages:
             const container = document.getElementById('stages-container');
             const stageIdx = container.querySelectorAll('.stage-item').length;
             const newStage = { name: '', mode: 'parallel', jobs: [] };
-            const html = buildStageForm(newStage, stageIdx);
+            // 获取所有 stages 用于判断位置
+            const allStages = Array.from(container.querySelectorAll('.stage-item')).map(() => ({}));
+            allStages.push(newStage);
+            const html = buildStageForm(newStage, stageIdx, allStages);
             container.insertAdjacentHTML('beforeend', html);
+            reindexStages();
         }
 
         // 删除 Stage
@@ -2827,8 +2964,12 @@ stages:
             const container = document.getElementById(`jobs-container-${stageIdx}`);
             const jobIdx = container.querySelectorAll('.job-item').length;
             const newJob = { name: '', image: '', steps: [] };
-            const html = buildJobForm(stageIdx, newJob, jobIdx);
+            // 获取所有 jobs 用于判断位置
+            const allJobs = Array.from(container.querySelectorAll('.job-item')).map(() => ({}));
+            allJobs.push(newJob);
+            const html = buildJobForm(stageIdx, newJob, jobIdx, allJobs);
             container.insertAdjacentHTML('beforeend', html);
+            reindexJobs(stageIdx);
         }
 
         // 删除 Job
@@ -2845,8 +2986,12 @@ stages:
             const container = document.getElementById(`steps-container-${stageIdx}-${jobIdx}`);
             const stepIdx = container.querySelectorAll('.step-item').length;
             const newStep = { name: '', command: '' };
-            const html = buildStepForm(stageIdx, jobIdx, newStep, stepIdx);
+            // 获取所有 steps 用于判断位置
+            const allSteps = Array.from(container.querySelectorAll('.step-item')).map(() => ({}));
+            allSteps.push(newStep);
+            const html = buildStepForm(stageIdx, jobIdx, newStep, stepIdx, allSteps);
             container.insertAdjacentHTML('beforeend', html);
+            reindexSteps(stageIdx, jobIdx);
         }
 
         // 删除 Step
@@ -2861,6 +3006,7 @@ stages:
         // 重新编号 Stages
         function reindexStages() {
             const stageItems = document.querySelectorAll('.stage-item');
+            const totalStages = stageItems.length;
             stageItems.forEach((item, idx) => {
                 item.setAttribute('data-stage-index', idx);
                 item.querySelector('.item-title').textContent = `Stage ${idx + 1}`;
@@ -2873,6 +3019,29 @@ stages:
                 if (removeBtn) {
                     removeBtn.setAttribute('onclick', `removeStage(${idx})`);
                 }
+                // 更新上移/下移按钮
+                const upBtn = item.querySelector('[onclick*="moveStageUp"]');
+                const downBtn = item.querySelector('[onclick*="moveStageDown"]');
+                if (upBtn) {
+                    upBtn.setAttribute('onclick', `moveStageUp(${idx})`);
+                    if (idx === 0) {
+                        upBtn.style.opacity = '0.5';
+                        upBtn.style.cursor = 'not-allowed';
+                    } else {
+                        upBtn.style.opacity = '';
+                        upBtn.style.cursor = '';
+                    }
+                }
+                if (downBtn) {
+                    downBtn.setAttribute('onclick', `moveStageDown(${idx})`);
+                    if (idx === totalStages - 1) {
+                        downBtn.style.opacity = '0.5';
+                        downBtn.style.cursor = 'not-allowed';
+                    } else {
+                        downBtn.style.opacity = '';
+                        downBtn.style.cursor = '';
+                    }
+                }
                 // 重新编号 Jobs
                 reindexJobs(idx);
             });
@@ -2881,6 +3050,7 @@ stages:
         // 重新编号 Jobs
         function reindexJobs(stageIdx) {
             const jobItems = document.querySelectorAll(`.job-item[data-stage-index="${stageIdx}"]`);
+            const totalJobs = jobItems.length;
             jobItems.forEach((item, idx) => {
                 item.setAttribute('data-job-index', idx);
                 item.querySelector('.item-title').textContent = `Job ${idx + 1}`;
@@ -2893,6 +3063,29 @@ stages:
                 if (removeBtn) {
                     removeBtn.setAttribute('onclick', `removeJob(${stageIdx}, ${idx})`);
                 }
+                // 更新上移/下移按钮
+                const upBtn = item.querySelector('[onclick*="moveJobUp"]');
+                const downBtn = item.querySelector('[onclick*="moveJobDown"]');
+                if (upBtn) {
+                    upBtn.setAttribute('onclick', `moveJobUp(${stageIdx}, ${idx})`);
+                    if (idx === 0) {
+                        upBtn.style.opacity = '0.5';
+                        upBtn.style.cursor = 'not-allowed';
+                    } else {
+                        upBtn.style.opacity = '';
+                        upBtn.style.cursor = '';
+                    }
+                }
+                if (downBtn) {
+                    downBtn.setAttribute('onclick', `moveJobDown(${stageIdx}, ${idx})`);
+                    if (idx === totalJobs - 1) {
+                        downBtn.style.opacity = '0.5';
+                        downBtn.style.cursor = 'not-allowed';
+                    } else {
+                        downBtn.style.opacity = '';
+                        downBtn.style.cursor = '';
+                    }
+                }
                 // 重新编号 Steps
                 reindexSteps(stageIdx, idx);
             });
@@ -2901,6 +3094,7 @@ stages:
         // 重新编号 Steps
         function reindexSteps(stageIdx, jobIdx) {
             const stepItems = document.querySelectorAll(`.step-item[data-stage-index="${stageIdx}"][data-job-index="${jobIdx}"]`);
+            const totalSteps = stepItems.length;
             stepItems.forEach((item, idx) => {
                 item.setAttribute('data-step-index', idx);
                 item.querySelector('.item-title').textContent = `Step ${idx + 1}`;
@@ -2909,7 +3103,478 @@ stages:
                 if (removeBtn) {
                     removeBtn.setAttribute('onclick', `removeStep(${stageIdx}, ${jobIdx}, ${idx})`);
                 }
+                // 更新上移/下移按钮
+                const upBtn = item.querySelector('[onclick*="moveStepUp"]');
+                const downBtn = item.querySelector('[onclick*="moveStepDown"]');
+                if (upBtn) {
+                    upBtn.setAttribute('onclick', `moveStepUp(${stageIdx}, ${jobIdx}, ${idx})`);
+                    if (idx === 0) {
+                        upBtn.style.opacity = '0.5';
+                        upBtn.style.cursor = 'not-allowed';
+                    } else {
+                        upBtn.style.opacity = '';
+                        upBtn.style.cursor = '';
+                    }
+                }
+                if (downBtn) {
+                    downBtn.setAttribute('onclick', `moveStepDown(${stageIdx}, ${jobIdx}, ${idx})`);
+                    if (idx === totalSteps - 1) {
+                        downBtn.style.opacity = '0.5';
+                        downBtn.style.cursor = 'not-allowed';
+                    } else {
+                        downBtn.style.opacity = '';
+                        downBtn.style.cursor = '';
+                    }
+                }
             });
+        }
+
+        // ========== 上移/下移功能 ==========
+        
+        // Stage 上移
+        function moveStageUp(stageIdx) {
+            console.log('moveStageUp called with stageIdx:', stageIdx);
+            if (stageIdx === 0) {
+                console.log('Already at top');
+                return;
+            }
+            
+            const container = document.getElementById('stages-container');
+            if (!container) {
+                console.error('stages-container not found');
+                return;
+            }
+            
+            const stages = Array.from(container.querySelectorAll('.stage-item'));
+            console.log('Total stages:', stages.length, 'Current index:', stageIdx);
+            
+            if (stageIdx >= stages.length) {
+                console.error('Invalid stageIdx:', stageIdx);
+                return;
+            }
+            
+            const currentItem = stages[stageIdx];
+            const prevItem = stages[stageIdx - 1];
+            
+            if (currentItem && prevItem) {
+                container.insertBefore(currentItem, prevItem);
+                reindexStages();
+                console.log('Stage moved up successfully');
+            } else {
+                console.error('Items not found:', { currentItem, prevItem });
+            }
+        }
+        
+        // Stage 下移
+        function moveStageDown(stageIdx) {
+            console.log('moveStageDown called with stageIdx:', stageIdx);
+            const container = document.getElementById('stages-container');
+            if (!container) {
+                console.error('stages-container not found');
+                return;
+            }
+            
+            const stages = Array.from(container.querySelectorAll('.stage-item'));
+            console.log('Total stages:', stages.length, 'Current index:', stageIdx);
+            
+            if (stageIdx >= stages.length - 1) {
+                console.log('Already at bottom');
+                return;
+            }
+            
+            const currentItem = stages[stageIdx];
+            const nextItem = stages[stageIdx + 1];
+            
+            if (currentItem && nextItem) {
+                container.insertBefore(currentItem, nextItem.nextSibling);
+                reindexStages();
+                console.log('Stage moved down successfully');
+            } else {
+                console.error('Items not found:', { currentItem, nextItem });
+            }
+        }
+        
+        // Job 上移
+        function moveJobUp(stageIdx, jobIdx) {
+            console.log('moveJobUp called with stageIdx:', stageIdx, 'jobIdx:', jobIdx);
+            if (jobIdx === 0) {
+                console.log('Already at top');
+                return;
+            }
+            
+            const container = document.getElementById(`jobs-container-${stageIdx}`);
+            if (!container) {
+                console.error('jobs-container not found for stageIdx:', stageIdx);
+                return;
+            }
+            
+            const jobs = Array.from(container.querySelectorAll('.job-item'));
+            if (jobIdx >= jobs.length) {
+                console.error('Invalid jobIdx:', jobIdx);
+                return;
+            }
+            
+            const currentItem = jobs[jobIdx];
+            const prevItem = jobs[jobIdx - 1];
+            
+            if (currentItem && prevItem) {
+                container.insertBefore(currentItem, prevItem);
+                reindexJobs(stageIdx);
+                console.log('Job moved up successfully');
+            } else {
+                console.error('Items not found:', { currentItem, prevItem });
+            }
+        }
+        
+        // Job 下移
+        function moveJobDown(stageIdx, jobIdx) {
+            console.log('moveJobDown called with stageIdx:', stageIdx, 'jobIdx:', jobIdx);
+            const container = document.getElementById(`jobs-container-${stageIdx}`);
+            if (!container) {
+                console.error('jobs-container not found for stageIdx:', stageIdx);
+                return;
+            }
+            
+            const jobs = Array.from(container.querySelectorAll('.job-item'));
+            if (jobIdx >= jobs.length - 1) {
+                console.log('Already at bottom');
+                return;
+            }
+            
+            const currentItem = jobs[jobIdx];
+            const nextItem = jobs[jobIdx + 1];
+            
+            if (currentItem && nextItem) {
+                container.insertBefore(currentItem, nextItem.nextSibling);
+                reindexJobs(stageIdx);
+                console.log('Job moved down successfully');
+            } else {
+                console.error('Items not found:', { currentItem, nextItem });
+            }
+        }
+        
+        // Step 上移
+        function moveStepUp(stageIdx, jobIdx, stepIdx) {
+            console.log('moveStepUp called with stageIdx:', stageIdx, 'jobIdx:', jobIdx, 'stepIdx:', stepIdx);
+            if (stepIdx === 0) {
+                console.log('Already at top');
+                return;
+            }
+            
+            const container = document.getElementById(`steps-container-${stageIdx}-${jobIdx}`);
+            if (!container) {
+                console.error('steps-container not found for stageIdx:', stageIdx, 'jobIdx:', jobIdx);
+                return;
+            }
+            
+            const steps = Array.from(container.querySelectorAll('.step-item'));
+            if (stepIdx >= steps.length) {
+                console.error('Invalid stepIdx:', stepIdx);
+                return;
+            }
+            
+            const currentItem = steps[stepIdx];
+            const prevItem = steps[stepIdx - 1];
+            
+            if (currentItem && prevItem) {
+                container.insertBefore(currentItem, prevItem);
+                reindexSteps(stageIdx, jobIdx);
+                console.log('Step moved up successfully');
+            } else {
+                console.error('Items not found:', { currentItem, prevItem });
+            }
+        }
+        
+        // Step 下移
+        function moveStepDown(stageIdx, jobIdx, stepIdx) {
+            console.log('moveStepDown called with stageIdx:', stageIdx, 'jobIdx:', jobIdx, 'stepIdx:', stepIdx);
+            const container = document.getElementById(`steps-container-${stageIdx}-${jobIdx}`);
+            if (!container) {
+                console.error('steps-container not found for stageIdx:', stageIdx, 'jobIdx:', jobIdx);
+                return;
+            }
+            
+            const steps = Array.from(container.querySelectorAll('.step-item'));
+            if (stepIdx >= steps.length - 1) {
+                console.log('Already at bottom');
+                return;
+            }
+            
+            const currentItem = steps[stepIdx];
+            const nextItem = steps[stepIdx + 1];
+            
+            if (currentItem && nextItem) {
+                container.insertBefore(currentItem, nextItem.nextSibling);
+                reindexSteps(stageIdx, jobIdx);
+                console.log('Step moved down successfully');
+            } else {
+                console.error('Items not found:', { currentItem, nextItem });
+            }
+        }
+
+        // ========== 拖拽功能（保留但未使用）==========
+        let draggedElement = null;
+        let draggedIndex = null;
+        let draggedType = null; // 'stage', 'job', 'step'
+        let draggedStageIdx = null;
+        let draggedJobIdx = null;
+
+        // Stage 拖拽处理
+        function handleStageDragStart(event, stageIdx) {
+            draggedElement = event.currentTarget;
+            draggedIndex = stageIdx;
+            draggedType = 'stage';
+            event.currentTarget.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/html', event.currentTarget.outerHTML);
+        }
+
+        function handleStageDragEnd(event) {
+            event.currentTarget.classList.remove('dragging');
+            // 清除所有 drag-over 状态
+            document.querySelectorAll('.stage-item').forEach(item => {
+                item.classList.remove('drag-over', 'drag-over-bottom');
+            });
+        }
+
+        function handleStageDragOver(event, stageIdx) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            
+            const target = event.currentTarget;
+            const currentIndex = parseInt(target.getAttribute('data-stage-index'));
+            const rect = target.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            
+            // 清除所有 drag-over 状态
+            document.querySelectorAll('.stage-item').forEach(item => {
+                item.classList.remove('drag-over', 'drag-over-bottom');
+            });
+            
+            // 如果不是拖拽自己
+            if (draggedIndex !== currentIndex) {
+                if (event.clientY < midY) {
+                    target.classList.add('drag-over');
+                } else {
+                    target.classList.add('drag-over-bottom');
+                }
+            }
+        }
+
+        function handleStageDragLeave(event) {
+            // 不清除状态，让 drop 处理
+        }
+
+        function handleStageDrop(event, targetStageIdx) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            if (draggedType !== 'stage' || draggedElement === null || draggedIndex === null) {
+                return;
+            }
+            
+            const targetItem = event.currentTarget;
+            const currentIndex = parseInt(targetItem.getAttribute('data-stage-index'));
+            
+            // 如果拖拽到自己，不处理
+            if (draggedIndex === currentIndex) {
+                return;
+            }
+            
+            const container = document.getElementById('stages-container');
+            const rect = targetItem.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const insertBefore = event.clientY < midY;
+            
+            if (insertBefore) {
+                container.insertBefore(draggedElement, targetItem);
+            } else {
+                container.insertBefore(draggedElement, targetItem.nextSibling);
+            }
+            
+            // 重新编号所有 stages
+            reindexStages();
+            
+            // 清除状态
+            draggedElement = null;
+            draggedIndex = null;
+            draggedType = null;
+        }
+
+        // Job 拖拽处理
+        function handleJobDragStart(event, stageIdx, jobIdx) {
+            draggedElement = event.currentTarget;
+            draggedIndex = jobIdx;
+            draggedType = 'job';
+            draggedStageIdx = stageIdx;
+            event.currentTarget.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/html', event.currentTarget.outerHTML);
+        }
+
+        function handleJobDragEnd(event) {
+            event.currentTarget.classList.remove('dragging');
+            const container = document.getElementById(`jobs-container-${draggedStageIdx}`);
+            if (container) {
+                container.querySelectorAll('.job-item').forEach(item => {
+                    item.classList.remove('drag-over', 'drag-over-bottom');
+                });
+            }
+        }
+
+        function handleJobDragOver(event, stageIdx, jobIdx) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            
+            const target = event.currentTarget;
+            const currentIndex = parseInt(target.getAttribute('data-job-index'));
+            const rect = target.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            
+            const container = document.getElementById(`jobs-container-${stageIdx}`);
+            if (container) {
+                container.querySelectorAll('.job-item').forEach(item => {
+                    item.classList.remove('drag-over', 'drag-over-bottom');
+                });
+            }
+            
+            if (draggedStageIdx === stageIdx && draggedIndex !== currentIndex) {
+                if (event.clientY < midY) {
+                    target.classList.add('drag-over');
+                } else {
+                    target.classList.add('drag-over-bottom');
+                }
+            }
+        }
+
+        function handleJobDragLeave(event) {
+            // 不清除状态
+        }
+
+        function handleJobDrop(event, targetStageIdx, targetJobIdx) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            if (draggedType !== 'job' || draggedElement === null || draggedStageIdx !== targetStageIdx || draggedIndex === null) {
+                return;
+            }
+            
+            const targetItem = event.currentTarget;
+            const currentIndex = parseInt(targetItem.getAttribute('data-job-index'));
+            
+            // 如果拖拽到自己，不处理
+            if (draggedIndex === currentIndex) {
+                return;
+            }
+            
+            const container = document.getElementById(`jobs-container-${targetStageIdx}`);
+            const rect = targetItem.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const insertBefore = event.clientY < midY;
+            
+            if (insertBefore) {
+                container.insertBefore(draggedElement, targetItem);
+            } else {
+                container.insertBefore(draggedElement, targetItem.nextSibling);
+            }
+            
+            // 重新编号所有 jobs
+            reindexJobs(targetStageIdx);
+            
+            // 清除状态
+            draggedElement = null;
+            draggedIndex = null;
+            draggedType = null;
+            draggedStageIdx = null;
+        }
+
+        // Step 拖拽处理
+        function handleStepDragStart(event, stageIdx, jobIdx, stepIdx) {
+            draggedElement = event.currentTarget;
+            draggedIndex = stepIdx;
+            draggedType = 'step';
+            draggedStageIdx = stageIdx;
+            draggedJobIdx = jobIdx;
+            event.currentTarget.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/html', event.currentTarget.outerHTML);
+        }
+
+        function handleStepDragEnd(event) {
+            event.currentTarget.classList.remove('dragging');
+            const container = document.getElementById(`steps-container-${draggedStageIdx}-${draggedJobIdx}`);
+            if (container) {
+                container.querySelectorAll('.step-item').forEach(item => {
+                    item.classList.remove('drag-over', 'drag-over-bottom');
+                });
+            }
+        }
+
+        function handleStepDragOver(event, stageIdx, jobIdx, stepIdx) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            
+            const target = event.currentTarget;
+            const currentIndex = parseInt(target.getAttribute('data-step-index'));
+            const rect = target.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            
+            const container = document.getElementById(`steps-container-${stageIdx}-${jobIdx}`);
+            if (container) {
+                container.querySelectorAll('.step-item').forEach(item => {
+                    item.classList.remove('drag-over', 'drag-over-bottom');
+                });
+            }
+            
+            if (draggedStageIdx === stageIdx && draggedJobIdx === jobIdx && draggedIndex !== currentIndex) {
+                if (event.clientY < midY) {
+                    target.classList.add('drag-over');
+                } else {
+                    target.classList.add('drag-over-bottom');
+                }
+            }
+        }
+
+        function handleStepDragLeave(event) {
+            // 不清除状态
+        }
+
+        function handleStepDrop(event, targetStageIdx, targetJobIdx, targetStepIdx) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            if (draggedType !== 'step' || draggedElement === null || draggedStageIdx !== targetStageIdx || draggedJobIdx !== targetJobIdx || draggedIndex === null) {
+                return;
+            }
+            
+            const targetItem = event.currentTarget;
+            const currentIndex = parseInt(targetItem.getAttribute('data-step-index'));
+            
+            // 如果拖拽到自己，不处理
+            if (draggedIndex === currentIndex) {
+                return;
+            }
+            
+            const container = document.getElementById(`steps-container-${targetStageIdx}-${targetJobIdx}`);
+            const rect = targetItem.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            const insertBefore = event.clientY < midY;
+            
+            if (insertBefore) {
+                container.insertBefore(draggedElement, targetItem);
+            } else {
+                container.insertBefore(draggedElement, targetItem.nextSibling);
+            }
+            
+            // 重新编号所有 steps
+            reindexSteps(targetStageIdx, targetJobIdx);
+            
+            // 清除状态
+            draggedElement = null;
+            draggedIndex = null;
+            draggedType = null;
+            draggedStageIdx = null;
+            draggedJobIdx = null;
         }
 
         // 关闭创建 Drawer
@@ -2925,7 +3590,15 @@ stages:
             const visualContainer = document.getElementById('visual-editor-container');
             if (visualContainer.classList.contains('active')) {
                 // 可视化模式：先转换为 YAML
-                await syncVisualToYAML();
+                const success = await syncVisualToYAML();
+                if (!success) {
+                    // 转换失败，不继续创建
+                    const createBtn = document.getElementById('create-btn');
+                    const statusDiv = document.getElementById('creation-status');
+                    createBtn.disabled = false;
+                    statusDiv.style.display = 'none';
+                    return;
+                }
                 yaml = document.getElementById('pipeline-yaml').value.trim();
             } else {
                 // YAML 模式：直接获取
@@ -2936,6 +3609,8 @@ stages:
                 showNotification('error', '创建失败', '请输入 Pipeline 配置');
                 return;
             }
+            
+            console.log('Creating pipeline with YAML:', yaml);
 
             const createBtn = document.getElementById('create-btn');
             const statusDiv = document.getElementById('creation-status');
