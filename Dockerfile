@@ -7,6 +7,10 @@ COPY go.mod ./
 
 COPY go.sum ./
 
+# local replace 依赖（github.com/fsnotify/fsevents => ./third_party/fsevents）
+# 必须在 go mod download 之前复制，否则模块解析失败
+COPY third_party/fsevents/ ./third_party/fsevents/
+
 RUN go mod download
 
 COPY . .
