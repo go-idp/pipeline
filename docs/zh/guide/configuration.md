@@ -178,10 +178,9 @@ steps:
     language:                          # 可选：语言运行时
       name: node
       version: 16
-    service:                           # 可选：服务编排
-      type: docker-compose
+    service:                           # 可选：服务编排（原生 Go SDK 部署）
+      type: docker-compose             # docker-compose | docker-swarm | kubernetes
       name: my-services
-      version: v1
       config: |
         version: '3'
         services:
@@ -240,19 +239,42 @@ language:
 
 ### service
 
-服务编排，可选。用于启动依赖服务（如数据库）。
+服务编排，可选。用于直接以原生定义部署服务（docker-compose / docker-swarm / kubernetes）。
+
+Pipeline 引擎使用 **Go SDK 原生部署**（不再生成 shell 脚本）：
+
+| 类型 | 实现 | 等价命令 |
+|------|------|---------|
+| `docker-compose` | Compose v2 SDK（`compose.Up`） | `docker compose --project-name <name> up -d` |
+| `docker-swarm` | Docker CLI stack deploy SDK | `docker stack deploy --prune --with-registry-auth -c <config> <name>` |
+| `kubernetes` | client-go server-side apply | `kubectl apply -f -` |
 
 ```yaml
 service:
-  type: docker-compose
-  name: my-services
-  version: v1
-  config: |
+  type: docker-compose          # 必填：docker-compose | docker-swarm | kubernetes
+  name: my-services             # 必填：compose project 名 / swarm stack 名
+  config: |                     # 必填：docker-compose.yaml 或 k8s manifest YAML（支持多文档）
     version: '3'
     services:
       db:
         image: postgres:13
+        environment:
+          POSTGRES_PASSWORD: $POSTGRES_PASSWORD   # 支持 ${VAR} 环境变量插值
+  timeout: 120                  # 可选：启动就绪等待秒数，默认 120（部署本身由 step timeout 限制）
+  image_registry: registry.example.com            # 可选：私有镜像仓库（等价 docker login）
+  image_registry_username: user
+  image_registry_password: pass
+  namespace: default            # 可选（kubernetes）：命名空间，默认取 kubeconfig 或 default
+  kubeconfig: /path/to/kubeconfig   # 可选（kubernetes）：kubeconfig 路径，默认 $KUBECONFIG / ~/.kube/config / in-cluster
 ```
+
+**说明**：
+
+- `config` 中的 `${VAR}` 环境变量使用 step 的环境变量插值（与 `docker compose` 行为一致）。
+- 私有镜像认证通过 `image_registry` + `image_registry_username` + `image_registry_password` 配置，不再需要 `docker login`。
+- 部署与就绪检查、失败诊断均由引擎 SDK 完成（docker-compose / swarm 轮询副本与任务状态，kubernetes 轮询 Deployment `readyReplicas` 并采集 pods/events）。
+- SDK 调用运行在 pipeline 进程所在主机（即执行 `pipeline run` 的 agent 主机），与之前 `docker compose` / `kubectl` 所在主机一致。
+- 旧版 `version: v1 / v2` 的 shell 生成方式已废弃移除。
 
 ## 配置继承
 

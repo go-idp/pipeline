@@ -54,6 +54,22 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 		defer cancel()
 	}
 
+	// Native service deploy (Go SDK), no shell generation
+	if s.Service != nil {
+		if err := s.runService(ctx); err != nil {
+			s.State.Status = "failed"
+			s.State.Error = err.Error()
+			s.State.FailedAt = time.Now()
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				s.State.Error = fmt.Sprintf("step timeout after %d seconds: %s", s.Timeout, err.Error())
+			}
+			return fmt.Errorf("failed to deploy service: %s", err)
+		}
+		s.State.Status = "succeeded"
+		s.State.SucceedAt = time.Now()
+		return nil
+	}
+
 	ccfg := &config.Config{
 		Context: ctx,
 		//

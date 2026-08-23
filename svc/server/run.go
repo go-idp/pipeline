@@ -379,7 +379,7 @@ func (s *server) Run() error {
 					sb.WriteString(fmt.Sprintf("[%s] [%s] %s\n", timestamp, log.Type, log.Message))
 				}
 
-				ctx.String(200, sb.String())
+				ctx.String(200, "%s", sb.String())
 			}
 		})
 

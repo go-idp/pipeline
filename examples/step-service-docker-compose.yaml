@@ -12,7 +12,6 @@ stages:
         steps:
           - name: deploy
             service:
-              version: v1
               type: docker-compose
               name: example_task_1234
               config: |

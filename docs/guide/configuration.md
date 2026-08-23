@@ -44,6 +44,38 @@ Each level inherits configuration from its parent, with child-level configuratio
 - **Environment Variables** (`environment`): Pipeline → Stage → Job → Step
 - **Image Registry Configuration** (`image_registry`, `image_registry_username`, `image_registry_password`): Job → Step
 
+## Service (native deploy)
+
+A step can deploy a service natively with Go SDKs (no shell generation):
+
+```yaml
+steps:
+  - name: deploy
+    service:
+      type: docker-compose          # docker-compose | docker-swarm | kubernetes
+      name: my-services             # compose project / swarm stack name
+      config: |                     # docker-compose.yaml or k8s manifest YAML (multi-doc)
+        version: '3'
+        services:
+          db:
+            image: postgres:13
+      timeout: 120                  # startup readiness wait in seconds (default 120)
+      image_registry: registry.example.com   # optional: private registry auth (docker login equivalent)
+      image_registry_username: user
+      image_registry_password: pass
+      namespace: default            # kubernetes only
+      kubeconfig: /path/to/kubeconfig        # kubernetes only
+```
+
+- `docker-compose`: Compose v2 SDK (`docker compose --project-name <name> up -d` equivalent)
+- `docker-swarm`: Docker CLI stack deploy SDK (`docker stack deploy` equivalent)
+- `kubernetes`: client-go server-side apply (`kubectl apply -f -` equivalent)
+
+`${VAR}` references in `config` are interpolated with the step environment. The SDK
+runs in the pipeline process (the agent host that executes `pipeline run`), which is
+the same host that has docker / kubectl access. The legacy `version: v1` shell-based
+service mode is removed.
+
 ## More Examples
 
 See example files in the `examples/` directory:
