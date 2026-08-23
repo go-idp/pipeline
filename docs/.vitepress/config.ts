@@ -45,6 +45,7 @@ export default defineConfig({
               items: [
                 { text: 'Overview', link: '/commands/' },
                 { text: 'run', link: '/commands/run' },
+                { text: 'web', link: '/commands/web' },
                 { text: 'server', link: '/commands/server' },
                 { text: 'client', link: '/commands/client' },
               ],
@@ -114,6 +115,7 @@ export default defineConfig({
               items: [
                 { text: '命令概述', link: '/zh/commands/' },
                 { text: 'run 命令', link: '/zh/commands/run' },
+                { text: 'web 命令', link: '/zh/commands/web' },
                 { text: 'server 命令', link: '/zh/commands/server' },
                 { text: 'client 命令', link: '/zh/commands/client' },
               ],

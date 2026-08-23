@@ -16,7 +16,7 @@ go build -o pipeline ./cmd/pipeline
 pipeline web [options]
 ```
 
-然后访问 <http://localhost:8080/> 打开管理后台。
+然后访问 `http://localhost:8080/` 打开管理后台。
 
 ## 与 `pipeline server` 的关系
 

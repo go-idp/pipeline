@@ -17,7 +17,7 @@ go build -o pipeline ./cmd/pipeline
 pipeline web [options]
 ```
 
-Then open <http://localhost:8080/> to access the console.
+Then open `http://localhost:8080/` to access the console.
 
 ## Relationship with `pipeline server`
 
