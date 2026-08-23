@@ -1,6 +1,2 @@
-.env
-tmp/
-
-pipeline
-
 node_modules/
+*.tsbuildinfo
