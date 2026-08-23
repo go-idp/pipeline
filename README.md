@@ -75,26 +75,44 @@ pipeline run -c pipeline.yaml
 
 **Documentation**: [Run Command Documentation](https://go-idp.github.io/pipeline/commands/run)
 
-### 2. Server Mode
+### 2. Web Console (Web Mode)
 
-Start a Pipeline service that provides Web Console and REST API:
+Start the full management console: the embedded frontend (React + TypeScript)
+is served together with the server backend. Build the frontend first:
 
 ```bash
-# Start the server
-pipeline server
+cd web/ui && pnpm install && pnpm build   # build the frontend once
+go build -o pipeline ./cmd/pipeline
+```
+
+```bash
+# Start the console
+pipeline web
 
 # Access Web Console
-open http://localhost:8080/console
+open http://localhost:8080
+```
+
+**Documentation**: [Web Command Documentation](https://go-idp.github.io/pipeline/commands/web)
+
+### 3. Server Mode (API Only)
+
+Start a lightweight API-only service (REST API + WebSocket + queue), without
+the embedded frontend:
+
+```bash
+pipeline server
 ```
 
 **Documentation**: [Server Command Documentation](https://go-idp.github.io/pipeline/commands/server)
 
-### 3. Client Mode
+### 4. Client Mode
 
-Connect to a Pipeline Server and execute Pipeline:
+Connect to a Pipeline Server and execute Pipeline (WebSocket default path is
+`/ws`):
 
 ```bash
-pipeline client -c pipeline.yaml -s ws://localhost:8080
+pipeline client -c pipeline.yaml -s ws://localhost:8080/ws
 ```
 
 **Documentation**: [Client Command Documentation](https://go-idp.github.io/pipeline/commands/client)
@@ -212,15 +230,24 @@ More examples can be found in the [examples](./examples/) directory (including `
 
 ## 🌟 Key Features
 
-### Web Console
+### Web Console (`pipeline web`)
 
-Pipeline Server provides a complete Web Console with:
+The `pipeline web` command provides a complete management console
+(Linear-style monochrome UI, `⌘K` command palette, zh/en i18n):
 
-- 📊 **Pipeline Management**: Create, view, and delete Pipelines
-- 📈 **Queue Monitoring**: Real-time queue status and statistics
-- 📝 **Log Viewing**: View Pipeline execution logs and definitions
-- ⚙️ **System Settings**: Configure queue concurrency and other system parameters
-- 🔄 **Auto Refresh**: Automatically refresh Pipeline status and queue information
+- 📊 **Overview**: run trends, success rate, status distribution
+- 🧬 **Pipelines**: YAML-first definition CRUD with CodeMirror editor + visual preview
+- 📈 **Runs**: run list/detail with stage timeline, stage/job/step tree and
+  real-time logs; cancel / rerun / export
+- 📊 **Queue Monitoring**: real-time queue status and concurrency
+- ⚙️ **System Settings**: concurrency, timeout, executor, environment allowlist
+
+The `pipeline server` command remains a lightweight API-only service.
+
+On startup the server injects **built-in templates** (CI / release / deploy /
+docs / nightly) and a few **demo runs** (idempotent, only when storage is
+empty), so the console is immediately usable — see
+[`web` command documentation](https://go-idp.github.io/pipeline/commands/web).
 
 ### Queue System
 
@@ -266,15 +293,21 @@ pipeline/
 ├── cmd/pipeline/          # CLI entry point
 │   └── commands/          # Command implementations
 │       ├── run.go         # run command
-│       ├── server.go      # server command
+│       ├── server.go      # server command (API only)
+│       ├── web.go         # web command (embedded frontend + server)
 │       └── client.go      # client command
+├── event/                 # Run state events (stage/job/step observer)
 ├── svc/                   # Service layer
 │   ├── server/            # Server implementation
 │   │   ├── server.go      # Server main logic
 │   │   ├── queue.go       # Queue system
 │   │   ├── store.go       # Storage system
-│   │   └── console.html   # Web Console
+│   │   ├── api_web.go     # Management API extensions
+│   │   └── web.go         # SPA static serving
 │   └── client/            # Client implementation
+├── web/                   # Web console
+│   ├── embed.go           # go:embed of web/ui/dist
+│   └── ui/                # Frontend (pnpm + Vite + React + TypeScript)
 ├── examples/              # Example configurations
 ├── docs/                  # Documentation (VitePress)
 └── *.go                   # Core code

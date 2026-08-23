@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-idp/pipeline/svc/action"
 	"github.com/go-zoox/core-utils/io"
 	"github.com/go-zoox/debug"
@@ -168,6 +169,21 @@ func Mount(app *zoox.Application, opts ...MountOption) error {
 						environment: cfg.Environment,
 						executor:    cfg.TaskExecutor,
 						timeout:     cfg.TaskTimeout,
+					}
+
+					// 采集 stage/job/step 三级运行时状态（in-process 执行器）
+					if cfg.Store != nil && cfg.TaskExecutor != TaskExecutorSubprocess {
+						pl.SetObserve(func(ev event.Event) {
+							cfg.Store.UpsertStageState(conn.ID(), &StageState{
+								ID:        ev.ID,
+								Level:     string(ev.Level),
+								Name:      ev.Name,
+								Status:    ev.Status,
+								Error:     ev.Error,
+								StartedAt: ev.StartedAt,
+								EndedAt:   ev.EndedAt,
+							})
+						})
 					}
 
 					err := executor.Run(conn.ID(), pl, conn.Context(), stdout, stderr)

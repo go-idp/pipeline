@@ -21,7 +21,7 @@ func TestStepSetup_Defaults(t *testing.T) {
 	if s.State.ID != "sid" {
 		t.Fatalf("state id mismatch: got %q", s.State.ID)
 	}
-	if s.State.Status != "running" {
+	if s.State.Status != "pending" {
 		t.Fatalf("state status mismatch: got %q", s.State.Status)
 	}
 	if s.State.StartedAt.IsZero() {

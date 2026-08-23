@@ -68,6 +68,10 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		if s.DataDirOuter == "" {
 			s.DataDirOuter = opt.DataDirOuter
 		}
+
+		if s.Observe == nil {
+			s.Observe = opt.Observe
+		}
 	}
 
 	// environment
@@ -190,7 +194,7 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 	// setup state
 	s.State = &State{
 		ID:        id,
-		Status:    "running",
+		Status:    "pending",
 		StartedAt: time.Now(),
 	}
 

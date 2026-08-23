@@ -24,7 +24,7 @@ Specify the Pipeline configuration file path (required).
 **Example**:
 
 ```bash
-pipeline client -c pipeline.yaml -s ws://localhost:8080
+pipeline client -c pipeline.yaml -s ws://localhost:8080/ws
 ```
 
 ### `-s, --server`
@@ -39,7 +39,7 @@ Specify the Pipeline Server address (required).
 **Example**:
 
 ```bash
-pipeline client -c pipeline.yaml -s ws://localhost:8080
+pipeline client -c pipeline.yaml -s ws://localhost:8080/ws
 pipeline client -c pipeline.yaml -s wss://pipeline.example.com
 ```
 
@@ -63,7 +63,7 @@ pipeline server
 # Execute Pipeline with client
 pipeline client \
   -c pipeline.yaml \
-  -s ws://localhost:8080
+  -s ws://localhost:8080/ws
 ```
 
 ## Output Format

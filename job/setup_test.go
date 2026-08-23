@@ -35,7 +35,7 @@ func TestJobSetup_MergeAndPropagateToSteps(t *testing.T) {
 	if j.State.ID != "jid" {
 		t.Fatalf("job state id mismatch: got %q", j.State.ID)
 	}
-	if j.State.Status != "running" {
+	if j.State.Status != "pending" {
 		t.Fatalf("job state status mismatch: got %q", j.State.Status)
 	}
 	if j.State.StartedAt.IsZero() {

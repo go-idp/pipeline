@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-idp/pipeline/stage"
 	"github.com/go-zoox/logger"
 	"github.com/go-zoox/uuid"
@@ -46,6 +47,9 @@ func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
 	plog.Infof("[workflow] workdir: %s", p.Workdir)
 	plog.Infof("[workflow] timeout: %d seconds", p.Timeout)
 
+	// the pipeline is about to run
+	p.emit("running", nil, nil)
+
 	// Create context with timeout for pipeline
 	var cancel context.CancelFunc
 	if p.Timeout > 0 {
@@ -67,6 +71,7 @@ func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
 			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 				p.State.Error = fmt.Sprintf("pipeline timeout after %d seconds: %s", p.Timeout, err.Error())
 			}
+			p.emit("failed", &p.State.FailedAt, fmt.Errorf("%s", p.State.Error))
 
 			// 输出错误信息
 			plog.Errorf("[workflow] error: %s", err)
@@ -82,6 +87,7 @@ func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
 
 	p.State.Status = "succeeded"
 	p.State.SucceedAt = time.Now()
+	p.emit("succeeded", &p.State.SucceedAt, nil)
 	plog.Infof("[workflow] done")
 
 	// 成功时清理 workdir
@@ -90,4 +96,25 @@ func (p *Pipeline) Run(ctx context.Context, opts ...RunOption) error {
 	}
 
 	return nil
+}
+
+// emit sends a run state change event to the observer, if any.
+func (p *Pipeline) emit(status string, endedAt *time.Time, err error) {
+	if p.Observe == nil {
+		return
+	}
+
+	ev := event.Event{
+		Level:     event.LevelPipeline,
+		ID:        p.State.ID,
+		Name:      p.Name,
+		Status:    status,
+		StartedAt: p.State.StartedAt,
+		EndedAt:   endedAt,
+	}
+	if err != nil {
+		ev.Error = err.Error()
+	}
+
+	p.Observe(ev)
 }

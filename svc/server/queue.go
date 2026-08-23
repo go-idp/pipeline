@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-idp/pipeline"
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-zoox/logger"
 )
 
@@ -15,6 +16,7 @@ type QueueItem struct {
 	ID        string             `json:"id"`
 	Name      string             `json:"name"`
 	Status    string             `json:"status"` // pending | running | succeeded | failed | cancelled
+	Trigger   string             `json:"trigger,omitempty"`
 	CreatedAt time.Time          `json:"created_at"`
 	StartedAt *time.Time         `json:"started_at,omitempty"`
 	EndedAt   *time.Time         `json:"ended_at,omitempty"`
@@ -31,6 +33,8 @@ type Queue interface {
 	Enqueue(id, name string, pl *pipeline.Pipeline) error
 	// EnqueueWithYAML 添加 pipeline 到队列（带 YAML）
 	EnqueueWithYAML(id, name string, pl *pipeline.Pipeline, yaml string) error
+	// EnqueueWithYAMLAndTrigger 添加 pipeline 到队列（带 YAML 与触发来源）
+	EnqueueWithYAMLAndTrigger(id, name string, pl *pipeline.Pipeline, yaml, trigger string) error
 	// Dequeue 从队列中取出 pipeline
 	Dequeue() (*QueueItem, bool)
 	// Get 获取队列项
@@ -95,6 +99,10 @@ func (q *queue) Enqueue(id, name string, pl *pipeline.Pipeline) error {
 }
 
 func (q *queue) EnqueueWithYAML(id, name string, pl *pipeline.Pipeline, yaml string) error {
+	return q.EnqueueWithYAMLAndTrigger(id, name, pl, yaml, "manual")
+}
+
+func (q *queue) EnqueueWithYAMLAndTrigger(id, name string, pl *pipeline.Pipeline, yaml, trigger string) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -106,6 +114,7 @@ func (q *queue) EnqueueWithYAML(id, name string, pl *pipeline.Pipeline, yaml str
 		ID:        id,
 		Name:      name,
 		Status:    "pending",
+		Trigger:   trigger,
 		CreatedAt: time.Now(),
 		Pipeline:  pl,
 		YAML:      yaml,
@@ -121,6 +130,7 @@ func (q *queue) EnqueueWithYAML(id, name string, pl *pipeline.Pipeline, yaml str
 		config["workdir"] = fmt.Sprintf("%s/%s", q.workdir, id)
 		config["timeout"] = pl.Timeout
 		config["image"] = pl.Image
+		config["trigger"] = trigger
 		q.store.CreateWithYAML(id, name, yaml, config)
 	}
 
@@ -314,6 +324,22 @@ func (q *queue) execute(item *QueueItem) {
 		environment: q.environment,
 		executor:    q.executor,
 		timeout:     q.taskTimeout,
+	}
+
+	// 采集 stage/job/step 三级运行时状态（仅 in-process 执行器生效，
+	// subprocess 执行器在独立进程内运行，无法回传层级状态）
+	if q.store != nil && q.executor != TaskExecutorSubprocess {
+		item.Pipeline.SetObserve(func(ev event.Event) {
+			q.store.UpsertStageState(item.ID, &StageState{
+				ID:        ev.ID,
+				Level:     string(ev.Level),
+				Name:      ev.Name,
+				Status:    ev.Status,
+				Error:     ev.Error,
+				StartedAt: ev.StartedAt,
+				EndedAt:   ev.EndedAt,
+			})
+		})
 	}
 
 	err := executor.Run(item.ID, item.Pipeline, ctx, &queueWriter{

@@ -1,6 +1,6 @@
 # Commands Overview
 
-Pipeline provides three main commands to meet different usage scenarios.
+Pipeline provides four main commands to meet different usage scenarios.
 
 ## Command List
 
@@ -19,18 +19,34 @@ pipeline run [options]
 
 **Documentation**: [run command](./run.md)
 
+### web
+
+Start the full management console: the embedded frontend (React + TypeScript)
+served together with the server backend.
+
+```bash
+pipeline web [options]
+```
+
+**Use Cases**:
+- Visual management of pipelines and runs
+- Real-time run logs and three-level (stage/job/step) status
+- Production deployment of the console
+
+**Documentation**: [web command](./web.md)
+
 ### server
 
-Start a Pipeline service that provides Web Console and REST API.
+Start a lightweight API-only service (REST API + WebSocket + queue), without
+the embedded frontend.
 
 ```bash
 pipeline server [options]
 ```
 
 **Use Cases**:
-- Production deployment
-- Web interface management
 - REST API integration
+- Programmatic access
 - Queue management
 
 **Documentation**: [server command](./server.md)
@@ -62,10 +78,11 @@ pipeline run -c pipeline.yaml
 
 ### Service Deployment
 
-Use the `server` command:
+Use the `web` command for the management console, or `server` for API only:
 
 ```bash
-pipeline server -p 8080
+pipeline web -p 8080        # console + API
+pipeline server -p 8080     # API only
 ```
 
 ### Remote Execution
@@ -89,7 +106,7 @@ pipeline server -p 8080
 2. Connect with Client:
 
 ```bash
-pipeline client -c pipeline.yaml -s ws://localhost:8080
+pipeline client -c pipeline.yaml -s ws://localhost:8080/ws
 ```
 
 This mode is suitable for:
@@ -122,7 +139,7 @@ All commands support debug mode:
 ```bash
 DEBUG=1 pipeline run -c pipeline.yaml
 DEBUG=1 pipeline server
-DEBUG=1 pipeline client -c pipeline.yaml -s ws://localhost:8080
+DEBUG=1 pipeline client -c pipeline.yaml -s ws://localhost:8080/ws
 ```
 
 Debug mode will output detailed execution information.

@@ -3,6 +3,7 @@ package stage
 import (
 	"io"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-idp/pipeline/job"
 	"github.com/go-zoox/logger"
 )
@@ -21,6 +22,9 @@ type Stage struct {
 	RunMode string `json:"run_mode" yaml:"run_mode"`
 	//
 	State *State `json:"state" yaml:"state"`
+	//
+	// Observe receives run state change events of this stage and its children.
+	Observe event.Observer `json:"-" yaml:"-"`
 	//
 	stdout io.Writer
 	stderr io.Writer

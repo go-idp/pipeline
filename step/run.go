@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-zoox/command"
 	"github.com/go-zoox/command/config"
 	"github.com/go-zoox/core-utils/strings"
@@ -54,6 +55,10 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 		defer cancel()
 	}
 
+	// the step is about to run
+	s.State.Status = "running"
+	s.emit("running", nil, nil)
+
 	// Native service deploy (Go SDK), no shell generation
 	if s.Service != nil {
 		if err := s.runService(ctx); err != nil {
@@ -63,10 +68,12 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 				s.State.Error = fmt.Sprintf("step timeout after %d seconds: %s", s.Timeout, err.Error())
 			}
+			s.emit("failed", &s.State.FailedAt, fmt.Errorf("%s", s.State.Error))
 			return fmt.Errorf("failed to deploy service: %s", err)
 		}
 		s.State.Status = "succeeded"
 		s.State.SucceedAt = time.Now()
+		s.emit("succeeded", &s.State.SucceedAt, nil)
 		return nil
 	}
 
@@ -171,11 +178,34 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 			s.State.Error = fmt.Sprintf("step timeout after %d seconds: %s", s.Timeout, err.Error())
 		}
+		s.emit("failed", &s.State.FailedAt, fmt.Errorf("%s", s.State.Error))
 		// s.State.ExitCode = cmd.Cancel()
 		return fmt.Errorf("failed to run command: %s", err)
 	}
 	s.State.Status = "succeeded"
 	s.State.SucceedAt = time.Now()
+	s.emit("succeeded", &s.State.SucceedAt, nil)
 
 	return nil
+}
+
+// emit sends a run state change event to the observer, if any.
+func (s *Step) emit(status string, endedAt *time.Time, err error) {
+	if s.Observe == nil {
+		return
+	}
+
+	ev := event.Event{
+		Level:     event.LevelStep,
+		ID:        s.State.ID,
+		Name:      s.Name,
+		Status:    status,
+		StartedAt: s.State.StartedAt,
+		EndedAt:   endedAt,
+	}
+	if err != nil {
+		ev.Error = err.Error()
+	}
+
+	s.Observe(ev)
 }

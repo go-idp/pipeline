@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-idp/pipeline/step"
 )
 
@@ -42,6 +43,10 @@ func (j *Job) Run(ctx context.Context, opts ...RunOption) error {
 		defer cancel()
 	}
 
+	// the job is about to run
+	j.State.Status = "running"
+	j.emit("running", nil, nil)
+
 	for i, s := range j.Steps {
 		err := s.Run(ctx, func(c *step.RunConfig) {
 			c.Total = len(j.Steps)
@@ -57,12 +62,35 @@ func (j *Job) Run(ctx context.Context, opts ...RunOption) error {
 			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 				j.State.Error = fmt.Sprintf("job timeout after %d seconds: %s", j.Timeout, err.Error())
 			}
+			j.emit("failed", &j.State.FailedAt, fmt.Errorf("%s", j.State.Error))
 			return err
 		}
 	}
 
 	j.State.Status = "succeeded"
 	j.State.SucceedAt = time.Now()
+	j.emit("succeeded", &j.State.SucceedAt, nil)
 
 	return nil
+}
+
+// emit sends a run state change event to the observer, if any.
+func (j *Job) emit(status string, endedAt *time.Time, err error) {
+	if j.Observe == nil {
+		return
+	}
+
+	ev := event.Event{
+		Level:     event.LevelJob,
+		ID:        j.State.ID,
+		Name:      j.Name,
+		Status:    status,
+		StartedAt: j.State.StartedAt,
+		EndedAt:   endedAt,
+	}
+	if err != nil {
+		ev.Error = err.Error()
+	}
+
+	j.Observe(ev)
 }

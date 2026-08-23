@@ -43,12 +43,16 @@ func (s *Stage) Setup(id string, opts ...*Stage) error {
 		if s.Timeout == 0 {
 			s.Timeout = opt.Timeout
 		}
+
+		if s.Observe == nil {
+			s.Observe = opt.Observe
+		}
 	}
 
 	// setup state
 	s.State = &State{
 		ID:     id,
-		Status: "running",
+		Status: "pending",
 		//
 		StartedAt: time.Now(),
 	}
@@ -63,6 +67,8 @@ func (s *Stage) Setup(id string, opts ...*Stage) error {
 			Image: s.Image,
 			//
 			Timeout: s.Timeout,
+			//
+			Observe: s.Observe,
 		})
 		if err != nil {
 			return err

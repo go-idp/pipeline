@@ -3,6 +3,7 @@ package job
 import (
 	"io"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-idp/pipeline/step"
 	"github.com/go-zoox/logger"
 )
@@ -24,6 +25,9 @@ type Job struct {
 	Timeout int64 `json:"timeout" yaml:"timeout"`
 	//
 	State *State `json:"state" yaml:"state"`
+	//
+	// Observe receives run state change events of this job and its children.
+	Observe event.Observer `json:"-" yaml:"-"`
 	//
 	stdout io.Writer
 	stderr io.Writer

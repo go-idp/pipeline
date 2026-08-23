@@ -43,12 +43,16 @@ func (j *Job) Setup(id string, opts ...*Job) error {
 		if j.Timeout == 0 {
 			j.Timeout = opt.Timeout
 		}
+
+		if j.Observe == nil {
+			j.Observe = opt.Observe
+		}
 	}
 
 	// setup state
 	j.State = &State{
 		ID:     id,
-		Status: "running",
+		Status: "pending",
 		//
 		StartedAt: time.Now(),
 	}
@@ -67,6 +71,8 @@ func (j *Job) Setup(id string, opts ...*Job) error {
 			ImageRegistry:         j.ImageRegistry,
 			ImageRegistryUsername: j.ImageRegistryUsername,
 			ImageRegistryPassword: j.ImageRegistryPassword,
+			//
+			Observe: j.Observe,
 		})
 		if err != nil {
 			return err

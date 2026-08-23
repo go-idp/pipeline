@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-idp/pipeline/job"
 	"golang.org/x/sync/errgroup"
 )
@@ -43,6 +44,10 @@ func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
 		defer cancel()
 	}
 
+	// the stage is about to run
+	s.State.Status = "running"
+	s.emit("running", nil, nil)
+
 	// job run mode
 	//	serial: run jobs in serial => one by one
 	//	parallel: run jobs in parallel => all at once
@@ -64,6 +69,7 @@ func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
 				if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 					s.State.Error = fmt.Sprintf("stage timeout after %d seconds: %s", s.Timeout, err.Error())
 				}
+				s.emit("failed", &s.State.FailedAt, fmt.Errorf("%s", s.State.Error))
 				return err
 			}
 		}
@@ -91,12 +97,35 @@ func (s *Stage) Run(ctx context.Context, opts ...RunOption) error {
 			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 				s.State.Error = fmt.Sprintf("stage timeout after %d seconds: %s", s.Timeout, err.Error())
 			}
+			s.emit("failed", &s.State.FailedAt, fmt.Errorf("%s", s.State.Error))
 			return err
 		}
 	}
 
 	s.State.Status = "succeeded"
 	s.State.SucceedAt = time.Now()
+	s.emit("succeeded", &s.State.SucceedAt, nil)
 
 	return nil
+}
+
+// emit sends a run state change event to the observer, if any.
+func (s *Stage) emit(status string, endedAt *time.Time, err error) {
+	if s.Observe == nil {
+		return
+	}
+
+	ev := event.Event{
+		Level:     event.LevelStage,
+		ID:        s.State.ID,
+		Name:      s.Name,
+		Status:    status,
+		StartedAt: s.State.StartedAt,
+		EndedAt:   endedAt,
+	}
+	if err != nil {
+		ev.Error = err.Error()
+	}
+
+	s.Observe(ev)
 }

@@ -73,140 +73,7 @@ func (s *server) Run() error {
 	api := app.Group("/api/v1")
 	{
 		// 获取 pipeline 列表（合并 store 和 queue 的数据）
-		api.Get("/pipelines", func(ctx *zoox.Context) {
-			limit := 100
-			if limitStr := ctx.Request.URL.Query().Get("limit"); limitStr != "" {
-				if parsed, err := strconv.Atoi(limitStr); err == nil {
-					limit = parsed
-				}
-			}
-
-			offset := 0
-			if offsetStr := ctx.Request.URL.Query().Get("offset"); offsetStr != "" {
-				if parsed, err := strconv.Atoi(offsetStr); err == nil {
-					offset = parsed
-				}
-			}
-
-			// 获取查询参数
-			search := ctx.Request.URL.Query().Get("search")
-			statusFilter := ctx.Request.URL.Query().Get("status")
-			startTimeStr := ctx.Request.URL.Query().Get("start_time")
-			endTimeStr := ctx.Request.URL.Query().Get("end_time")
-
-			// 解析时间范围
-			var startTime, endTime *time.Time
-			if startTimeStr != "" {
-				if t, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
-					startTime = &t
-				}
-			}
-			if endTimeStr != "" {
-				if t, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
-					endTime = &t
-				}
-			}
-
-			// 获取 store 中的记录
-			storeRecords := s.store.List(limit * 2) // 获取更多以便合并
-
-			// 获取 queue 中的项目
-			queueItems := s.queue.List()
-
-			// 创建 ID 到记录的映射
-			recordsMap := make(map[string]*PipelineRecord)
-			for _, record := range storeRecords {
-				recordsMap[record.ID] = record
-			}
-
-			// 合并 queue 中的 pending 和 running 任务
-			for _, item := range queueItems {
-				if record, exists := recordsMap[item.ID]; exists {
-					// 如果 store 中有记录，更新状态（queue 的状态可能更新）
-					if item.Status == "pending" || item.Status == "running" {
-						record.Status = item.Status
-						if item.StartedAt != nil {
-							// 保持 store 中的 StartedAt，除非 queue 中有更新的
-						}
-					}
-				} else {
-					// 如果 store 中没有记录，从 queue 创建记录
-					record := &PipelineRecord{
-						ID:        item.ID,
-						Name:      item.Name,
-						Status:    item.Status,
-						StartedAt: item.CreatedAt,
-						Config:    make(map[string]interface{}),
-						YAML:      item.YAML,
-						Logs:      make([]LogEntry, 0),
-					}
-					if item.StartedAt != nil {
-						record.StartedAt = *item.StartedAt
-					}
-					recordsMap[item.ID] = record
-				}
-			}
-
-			// 转换为列表并排序
-			records := make([]*PipelineRecord, 0, len(recordsMap))
-			for _, record := range recordsMap {
-				records = append(records, record)
-			}
-
-			// 按时间倒序排序
-			for i := 0; i < len(records)-1; i++ {
-				for j := i + 1; j < len(records); j++ {
-					if records[i].StartedAt.Before(records[j].StartedAt) {
-						records[i], records[j] = records[j], records[i]
-					}
-				}
-			}
-
-			// 应用过滤
-			filtered := make([]*PipelineRecord, 0)
-			for _, record := range records {
-				// 搜索过滤
-				if search != "" {
-					searchLower := strings.ToLower(search)
-					nameMatch := strings.Contains(strings.ToLower(record.Name), searchLower)
-					idMatch := strings.Contains(strings.ToLower(record.ID), searchLower)
-					if !nameMatch && !idMatch {
-						continue
-					}
-				}
-
-				// 状态过滤
-				if statusFilter != "" && record.Status != statusFilter {
-					continue
-				}
-
-				// 时间范围过滤
-				if startTime != nil && record.StartedAt.Before(*startTime) {
-					continue
-				}
-				if endTime != nil && record.StartedAt.After(*endTime) {
-					continue
-				}
-
-				filtered = append(filtered, record)
-			}
-
-			// 应用分页
-			total := len(filtered)
-			if offset > 0 && offset < len(filtered) {
-				filtered = filtered[offset:]
-			}
-			if limit > 0 && limit < len(filtered) {
-				filtered = filtered[:limit]
-			}
-
-			ctx.JSON(200, map[string]interface{}{
-				"data":   filtered,
-				"total":  total,
-				"limit":  limit,
-				"offset": offset,
-			})
-		})
+		api.Get("/pipelines", s.handleListPipelines)
 
 		// 获取单个 pipeline 详情
 		api.Get("/pipelines/:id", func(ctx *zoox.Context) {
@@ -386,11 +253,133 @@ func (s *server) Run() error {
 					sb.WriteString(fmt.Sprintf("[%s] [%s] %s\n", timestamp, log.Type, log.Message))
 				}
 
-				ctx.String(200, "%s", sb.String())
+				ctx.String(200, sb.String())
 			}
 		})
 
 		// 取消 pipeline 执行
+		api.Post("/pipelines/batch/delete", func(ctx *zoox.Context) {
+			var req struct {
+				IDs []string `json:"ids"`
+			}
+			if err := ctx.BindJSON(&req); err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("invalid request: %s", err),
+				})
+				return
+			}
+
+			deleted := 0
+			notFound := 0
+			for _, id := range req.IDs {
+				if s.store.Delete(id) {
+					deleted++
+				} else {
+					notFound++
+				}
+			}
+
+			ctx.JSON(200, map[string]interface{}{
+				"message":   "batch delete completed",
+				"deleted":   deleted,
+				"not_found": notFound,
+				"total":     len(req.IDs),
+			})
+		})
+
+		api.Post("/pipelines/batch/cancel", func(ctx *zoox.Context) {
+			var req struct {
+				IDs []string `json:"ids"`
+			}
+			if err := ctx.BindJSON(&req); err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("invalid request: %s", err),
+				})
+				return
+			}
+
+			cancelled := 0
+			failed := 0
+			notFound := 0
+
+			for _, id := range req.IDs {
+				// 尝试从队列取消
+				if s.queue != nil && s.queue.Cancel(id) {
+					cancelled++
+					continue
+				}
+
+				// 检查是否存在记录
+				record, ok := s.store.Get(id)
+				if !ok {
+					notFound++
+					continue
+				}
+
+				// 如果已经是最终状态，不能取消
+				if record.Status == "succeeded" || record.Status == "failed" || record.Status == "cancelled" {
+					failed++
+					continue
+				}
+
+				// 如果不在队列中，直接更新状态为 cancelled
+				if record.Status == "pending" || record.Status == "running" {
+					s.store.UpdateStatus(id, "cancelled", fmt.Errorf("cancelled by user"))
+					cancelled++
+				} else {
+					failed++
+				}
+			}
+
+			ctx.JSON(200, map[string]interface{}{
+				"message":   "batch cancel completed",
+				"cancelled": cancelled,
+				"failed":    failed,
+				"not_found": notFound,
+				"total":     len(req.IDs),
+			})
+		})
+
+		api.Post("/pipelines/run", func(ctx *zoox.Context) {
+			var req struct {
+				Config string `json:"config"` // YAML 格式的 pipeline 配置
+			}
+			if err := ctx.BindJSON(&req); err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("invalid request: %s", err),
+				})
+				return
+			}
+
+			// 解析 pipeline 配置
+			var pl pipeline.Pipeline
+			if err := yaml.Decode([]byte(req.Config), &pl); err != nil {
+				ctx.Status(400)
+				ctx.JSON(400, map[string]string{
+					"error": fmt.Sprintf("invalid pipeline config: %s", err),
+				})
+				return
+			}
+
+			// 返回 WebSocket 连接信息
+			wsPath := s.cfg.Path
+			if wsPath == "" {
+				wsPath = "/"
+			}
+			wsURL := fmt.Sprintf("ws://%s%s", ctx.Request.Host, wsPath)
+			if ctx.Request.TLS != nil {
+				wsURL = fmt.Sprintf("wss://%s%s", ctx.Request.Host, wsPath)
+			}
+
+			ctx.JSON(200, map[string]interface{}{
+				"ws_url":  wsURL,
+				"message": "use WebSocket to execute pipeline",
+			})
+		})
+
 		api.Post("/pipelines/:id/cancel", func(ctx *zoox.Context) {
 			id := ctx.Param().Get("id").String()
 
@@ -452,90 +441,8 @@ func (s *server) Run() error {
 		})
 
 		// 批量删除 pipeline 记录
-		api.Post("/pipelines/batch/delete", func(ctx *zoox.Context) {
-			var req struct {
-				IDs []string `json:"ids"`
-			}
-			if err := ctx.BindJSON(&req); err != nil {
-				ctx.Status(400)
-				ctx.JSON(400, map[string]string{
-					"error": fmt.Sprintf("invalid request: %s", err),
-				})
-				return
-			}
-
-			deleted := 0
-			notFound := 0
-			for _, id := range req.IDs {
-				if s.store.Delete(id) {
-					deleted++
-				} else {
-					notFound++
-				}
-			}
-
-			ctx.JSON(200, map[string]interface{}{
-				"message":   "batch delete completed",
-				"deleted":   deleted,
-				"not_found": notFound,
-				"total":     len(req.IDs),
-			})
-		})
 
 		// 批量取消 pipeline
-		api.Post("/pipelines/batch/cancel", func(ctx *zoox.Context) {
-			var req struct {
-				IDs []string `json:"ids"`
-			}
-			if err := ctx.BindJSON(&req); err != nil {
-				ctx.Status(400)
-				ctx.JSON(400, map[string]string{
-					"error": fmt.Sprintf("invalid request: %s", err),
-				})
-				return
-			}
-
-			cancelled := 0
-			failed := 0
-			notFound := 0
-
-			for _, id := range req.IDs {
-				// 尝试从队列取消
-				if s.queue != nil && s.queue.Cancel(id) {
-					cancelled++
-					continue
-				}
-
-				// 检查是否存在记录
-				record, ok := s.store.Get(id)
-				if !ok {
-					notFound++
-					continue
-				}
-
-				// 如果已经是最终状态，不能取消
-				if record.Status == "succeeded" || record.Status == "failed" || record.Status == "cancelled" {
-					failed++
-					continue
-				}
-
-				// 如果不在队列中，直接更新状态为 cancelled
-				if record.Status == "pending" || record.Status == "running" {
-					s.store.UpdateStatus(id, "cancelled", fmt.Errorf("cancelled by user"))
-					cancelled++
-				} else {
-					failed++
-				}
-			}
-
-			ctx.JSON(200, map[string]interface{}{
-				"message":   "batch cancel completed",
-				"cancelled": cancelled,
-				"failed":    failed,
-				"not_found": notFound,
-				"total":     len(req.IDs),
-			})
-		})
 
 		// 获取队列统计信息
 		api.Get("/queue/stats", func(ctx *zoox.Context) {
@@ -568,43 +475,6 @@ func (s *server) Run() error {
 		})
 
 		// 执行 pipeline (通过 WebSocket)
-		api.Post("/pipelines/run", func(ctx *zoox.Context) {
-			var req struct {
-				Config string `json:"config"` // YAML 格式的 pipeline 配置
-			}
-			if err := ctx.BindJSON(&req); err != nil {
-				ctx.Status(400)
-				ctx.JSON(400, map[string]string{
-					"error": fmt.Sprintf("invalid request: %s", err),
-				})
-				return
-			}
-
-			// 解析 pipeline 配置
-			var pl pipeline.Pipeline
-			if err := yaml.Decode([]byte(req.Config), &pl); err != nil {
-				ctx.Status(400)
-				ctx.JSON(400, map[string]string{
-					"error": fmt.Sprintf("invalid pipeline config: %s", err),
-				})
-				return
-			}
-
-			// 返回 WebSocket 连接信息
-			wsPath := s.cfg.Path
-			if wsPath == "" {
-				wsPath = "/"
-			}
-			wsURL := fmt.Sprintf("ws://%s%s", ctx.Request.Host, wsPath)
-			if ctx.Request.TLS != nil {
-				wsURL = fmt.Sprintf("wss://%s%s", ctx.Request.Host, wsPath)
-			}
-
-			ctx.JSON(200, map[string]interface{}{
-				"ws_url":  wsURL,
-				"message": "use WebSocket to execute pipeline",
-			})
-		})
 
 		// 获取设置
 		api.Get("/settings", func(ctx *zoox.Context) {
@@ -704,11 +574,19 @@ func (s *server) Run() error {
 		})
 	}
 
-	// Web Console 静态文件
+	// 管理后台扩展 API（runs / rerun / configs / stages）
+	s.MountWebAPI(api)
+
+	// 嵌入的前端 SPA（仅 pipeline web 命令）
+	if s.cfg.WebFS != nil {
+		if err := MountWeb(app, s.cfg.WebFS, s.cfg.Path); err != nil {
+			return fmt.Errorf("failed to mount web console: %s", err)
+		}
+	}
+
+	// 兼容旧路径：/console 重定向到根路径（新 SPA 由 web 命令提供）
 	app.Get("/console", func(ctx *zoox.Context) {
-		ctx.SetHeader(headers.ContentType, "text/html")
-		// ctx.String(200, getConsoleHTML())
-		ctx.Write([]byte(getConsoleHTML()))
+		ctx.Redirect("/", 301)
 	})
 
 	app.Get("/", func(ctx *zoox.Context) {
@@ -719,4 +597,139 @@ func (s *server) Run() error {
 	})
 
 	return app.Run(fmt.Sprintf(":%d", s.cfg.Port))
+}
+
+// handleListPipelines 返回合并 store 与 queue 的运行列表（支持搜索、状态、
+// 时间范围过滤与分页）。
+func (s *server) handleListPipelines(ctx *zoox.Context) {
+	limit := 100
+	if limitStr := ctx.Request.URL.Query().Get("limit"); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil {
+			limit = parsed
+		}
+	}
+
+	offset := 0
+	if offsetStr := ctx.Request.URL.Query().Get("offset"); offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil {
+			offset = parsed
+		}
+	}
+
+	// 获取查询参数
+	search := ctx.Request.URL.Query().Get("search")
+	statusFilter := ctx.Request.URL.Query().Get("status")
+	startTimeStr := ctx.Request.URL.Query().Get("start_time")
+	endTimeStr := ctx.Request.URL.Query().Get("end_time")
+
+	// 解析时间范围
+	var startTime, endTime *time.Time
+	if startTimeStr != "" {
+		if t, err := time.Parse(time.RFC3339, startTimeStr); err == nil {
+			startTime = &t
+		}
+	}
+	if endTimeStr != "" {
+		if t, err := time.Parse(time.RFC3339, endTimeStr); err == nil {
+			endTime = &t
+		}
+	}
+
+	// 获取 store 中的记录
+	storeRecords := s.store.List(limit * 2) // 获取更多以便合并
+
+	// 获取 queue 中的项目
+	queueItems := s.queue.List()
+
+	// 创建 ID 到记录的映射
+	recordsMap := make(map[string]*PipelineRecord)
+	for _, record := range storeRecords {
+		recordsMap[record.ID] = record
+	}
+
+	// 合并 queue 中的 pending 和 running 任务
+	for _, item := range queueItems {
+		if record, exists := recordsMap[item.ID]; exists {
+			if item.Status == "pending" || item.Status == "running" {
+				record.Status = item.Status
+			}
+		} else {
+			record := &PipelineRecord{
+				ID:        item.ID,
+				Name:      item.Name,
+				Status:    item.Status,
+				StartedAt: item.CreatedAt,
+				Config:    make(map[string]interface{}),
+				YAML:      item.YAML,
+				Logs:      make([]LogEntry, 0),
+			}
+			if item.StartedAt != nil {
+				record.StartedAt = *item.StartedAt
+			}
+			if item.Trigger != "" {
+				record.Config["trigger"] = item.Trigger
+			}
+			recordsMap[item.ID] = record
+		}
+	}
+
+	// 转换为列表并排序
+	records := make([]*PipelineRecord, 0, len(recordsMap))
+	for _, record := range recordsMap {
+		records = append(records, record)
+	}
+
+	// 按时间倒序排序
+	for i := 0; i < len(records)-1; i++ {
+		for j := i + 1; j < len(records); j++ {
+			if records[i].StartedAt.Before(records[j].StartedAt) {
+				records[i], records[j] = records[j], records[i]
+			}
+		}
+	}
+
+	// 应用过滤
+	filtered := make([]*PipelineRecord, 0)
+	for _, record := range records {
+		// 搜索过滤
+		if search != "" {
+			searchLower := strings.ToLower(search)
+			nameMatch := strings.Contains(strings.ToLower(record.Name), searchLower)
+			idMatch := strings.Contains(strings.ToLower(record.ID), searchLower)
+			if !nameMatch && !idMatch {
+				continue
+			}
+		}
+
+		// 状态过滤
+		if statusFilter != "" && record.Status != statusFilter {
+			continue
+		}
+
+		// 时间范围过滤
+		if startTime != nil && record.StartedAt.Before(*startTime) {
+			continue
+		}
+		if endTime != nil && record.StartedAt.After(*endTime) {
+			continue
+		}
+
+		filtered = append(filtered, record)
+	}
+
+	// 应用分页
+	total := len(filtered)
+	if offset > 0 && offset < len(filtered) {
+		filtered = filtered[offset:]
+	}
+	if limit > 0 && limit < len(filtered) {
+		filtered = filtered[:limit]
+	}
+
+	ctx.JSON(200, map[string]interface{}{
+		"data":   filtered,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }

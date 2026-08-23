@@ -16,6 +16,7 @@ func main() {
 	commands.RegisterRun(app)
 
 	commands.RegisterServer(app)
+	commands.RegisterWeb(app)
 	commands.RegisterClient(app)
 
 	app.Run()

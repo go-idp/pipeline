@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Web · 产品原型</title>
+<style>
+  :root{
+    --bg:#FAFAFA; --panel:#FFFFFF; --border:#E4E4E7; --border-2:#F1F1F3;
+    --text:#18181B; --text-2:#71717A; --text-3:#A1A1AA;
+    --hover:#F4F4F5; --active:#EFEFF0;
+    --blue:#3B82F6; --green:#16A34A; --red:#DC2626; --amber:#D97706;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Inter","SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:var(--sans);font-size:13.5px;line-height:1.55;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer}
+  input,textarea,select{font-family:inherit;font-size:13px;color:var(--text)}
+  ::selection{background:#E4E4E7}
+  a{color:inherit;text-decoration:none}
+
+  /* ---------- layout ---------- */
+  .app{display:flex;min-height:100vh}
+  .sidebar{position:fixed;inset:0 auto 0 0;width:232px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:20}
+  .main{flex:1;margin-left:232px;display:flex;flex-direction:column;min-width:0}
+  .content{flex:1;padding:24px 32px 64px;max-width:1240px;width:100%;margin:0 auto}
+
+  /* ---------- sidebar ---------- */
+  .sb-brand{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-bottom:1px solid var(--border-2)}
+  .logo{width:24px;height:24px;border-radius:6px;background:#18181B;display:flex;align-items:center;justify-content:center;color:#fff;flex:none}
+  .logo svg{width:12px;height:12px}
+  .sb-brand .nm{font-size:14px;font-weight:600;letter-spacing:-.01em}
+  .sb-brand .ver{margin-left:auto;font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+  .sb-nav{flex:1;overflow-y:auto;padding:10px 8px}
+  .sb-sec{font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;padding:12px 10px 6px}
+  .nav-item{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:6px;color:var(--text-2);font-weight:500;font-size:13.5px;cursor:pointer;user-select:none;position:relative}
+  .nav-item:hover{background:var(--hover);color:var(--text)}
+  .nav-item.active{background:var(--hover);color:var(--text)}
+  .nav-item.active::before{content:"";position:absolute;left:-8px;top:7px;bottom:7px;width:2px;border-radius:2px;background:var(--text)}
+  .nav-item svg{width:16px;height:16px;flex:none}
+  .nav-item .cnt{margin-left:auto;font-size:11px;font-weight:600;color:var(--text-3);background:var(--border-2);border-radius:10px;padding:0 7px;min-width:18px;text-align:center}
+  .sb-foot{border-top:1px solid var(--border-2);padding:12px}
+  .srv-state{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;font-size:12px;color:var(--text-2)}
+  .srv-state:hover{background:var(--hover)}
+  .dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--text-3)}
+  .dot.green{background:var(--green)}
+  .dot.blue{background:var(--blue);animation:pulse 1.6s ease-in-out infinite}
+  .dot.red{background:var(--red)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,.35)}50%{box-shadow:0 0 0 4px rgba(59,130,246,0)}}
+
+  /* ---------- topbar ---------- */
+  .topbar{height:56px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 32px;background:var(--bg)}
+  .tb-title{font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .tb-crumb{font-size:13px;color:var(--text-3)}
+  .tb-crumb b{color:var(--text-2);font-weight:500}
+  .tb-spacer{flex:1}
+  .tb-search{position:relative;display:flex;align-items:center}
+  .tb-search svg{position:absolute;left:9px;width:14px;height:14px;color:var(--text-3);pointer-events:none}
+  .tb-search input{width:240px;height:32px;padding:0 30px 0 30px;border:1px solid var(--border);border-radius:6px;background:var(--panel);outline:none}
+  .tb-search input:focus{border-color:var(--text)}
+  .tb-search .hint{position:absolute;right:8px;font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:4px;padding:0 5px;background:#fff;pointer-events:none}
+
+  /* ---------- components ---------- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:13px;font-weight:500;white-space:nowrap;transition:background .12s}
+  .btn:hover{background:var(--hover)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn svg{width:14px;height:14px}
+  .btn-primary{background:#18181B;border-color:#18181B;color:#fff}
+  .btn-primary:hover{background:#27272A}
+  .btn-danger{color:var(--red);border-color:var(--border)}
+  .btn-danger:hover{background:#FEF2F2;border-color:#FECACA}
+  .btn-icon{width:32px;padding:0}
+  .btn-sm{height:26px;padding:0 9px;font-size:12px;border-radius:5px}
+  .btn-sm svg{width:12px;height:12px}
+  .kbd{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;font-size:11px;font-weight:500;color:var(--text-2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;background:#fff}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:8px}
+  .card-h{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border-2);font-size:13.5px;font-weight:600}
+  .card-h .sub{font-size:12px;font-weight:400;color:var(--text-3)}
+  .card-b{padding:16px}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+  .stat .lb{font-size:12px;font-weight:500;color:var(--text-2)}
+  .stat .vl{font-size:24px;font-weight:600;letter-spacing:-.02em;margin-top:4px;line-height:1.2}
+  .stat .vl small{font-size:13px;font-weight:500;color:var(--text-3);margin-left:2px}
+  .stat .sb{font-size:12px;color:var(--text-3);margin-top:2px}
+
+  .tbl{width:100%;border-collapse:collapse}
+  .tbl th{font-size:11.5px;font-weight:500;color:var(--text-3);text-align:left;padding:0 16px 8px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.04em;user-select:none}
+  .tbl td{padding:0 16px;height:44px;border-bottom:1px solid var(--border-2);font-size:13.5px;vertical-align:middle}
+  .tbl tbody tr{cursor:pointer}
+  .tbl tbody tr:hover{background:#FCFCFD}
+  .tbl .row-check{width:20px}
+  .row-actions{display:flex;align-items:center;gap:4px;justify-content:flex-end}
+  .tbl td.num,.tbl th.num{text-align:right}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--text-2)}
+  .badge .dot{width:7px;height:7px}
+  .pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:11px;background:#F4F4F5;font-size:12px;font-weight:500;color:var(--text-2)}
+  .pill .dot{width:6px;height:6px}
+
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;background:#F4F4F5;padding:3px;gap:2px}
+  .seg button{height:26px;padding:0 11px;border:0;border-radius:4px;background:transparent;font-size:12.5px;font-weight:500;color:var(--text-2)}
+  .seg button:hover{color:var(--text)}
+  .seg button.on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06),0 0 0 1px var(--border)}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:6px}
+  .inp{width:100%;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:#fff;outline:none}
+  .inp:focus{border-color:var(--text)}
+  textarea.inp{height:auto;padding:10px;resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.6}
+  .empty{padding:56px 20px;text-align:center;color:var(--text-3)}
+  .empty .ei{width:36px;height:36px;margin:0 auto 12px;border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-2)}
+  .empty .ei svg{width:18px;height:18px}
+  .empty .et{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px}
+  .empty .es{font-size:13px;margin-bottom:14px}
+
+  /* overview */
+  .ov-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:20px}
+  .bars{display:flex;align-items:flex-end;gap:6px;height:150px;padding-top:8px}
+  .bar-wrap{flex:1;display:flex;flex-direction:column;gap:6px;height:100%;justify-content:flex-end}
+  .bar{display:flex;flex-direction:column;justify-content:flex-end;border-radius:3px;overflow:hidden;background:var(--border-2);flex:1;min-height:4px}
+  .bar .ok{background:#D1D5DB}
+  .bar .fail{background:var(--text)}
+  .bar-wrap .dl{font-size:10.5px;color:var(--text-3);text-align:center;margin-top:6px}
+  .dist-row{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13px}
+  .dist-row .dk{display:flex;align-items:center;gap:8px;width:110px;color:var(--text-2)}
+  .dist-row .dk .dot{width:7px;height:7px}
+  .dist-row .dv{font-weight:600;width:28px;text-align:right}
+  .dist-bar{flex:1;height:6px;border-radius:3px;background:var(--border-2);overflow:hidden}
+  .dist-bar i{display:block;height:100%;border-radius:3px}
+  .mini-list .mi{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-2);cursor:pointer}
+  .mini-list .mi:last-child{border-bottom:0}
+  .mini-list .mi:hover{background:#FCFCFD;margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:6px}
+  .mini-list .mn{flex:1;min-width:0}
+  .mini-list .mn .t{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini-list .mn .s{font-size:12px;color:var(--text-3)}
+  .mini-list .mt{font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums}
+
+  /* timeline */
+  .tl{display:flex;height:46px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--border-2)}
+  .tl-seg{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11.5px;font-weight:600;color:#fff;cursor:pointer;border-right:1px solid rgba(255,255,255,.55);white-space:nowrap;overflow:hidden;transition:filter .1s}
+  .tl-seg:last-child{border-right:0}
+  .tl-seg:hover{filter:brightness(.92)}
+  .tl-seg.s-pending{background:#E4E4E7;color:var(--text-3)}
+  .tl-seg.s-ok{background:#D1D5DB}
+  .tl-seg.s-running{background:var(--blue)}
+  .tl-seg.s-fail{background:var(--red)}
+  .tl-seg.s-cancel{background:#E4E4E7;color:var(--text-3)}
+  .tl-cap{display:flex;gap:18px;margin-top:8px;padding:0 2px}
+  .tl-cap div{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);min-width:0}
+  .tl-cap .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+  .tl-cap .dm{color:var(--text-3);font-variant-numeric:tabular-nums}
+
+  /* step tree */
+  .tree{border:1px solid var(--border);border-radius:8px;background:var(--panel);overflow:hidden}
+  .tree-h{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border-2);font-size:13px;font-weight:600}
+  .tree-h .sub{margin-left:auto;font-size:12px;font-weight:400;color:var(--text-3)}
+  .tree-b{padding:8px;max-height:520px;overflow-y:auto}
+  .tr{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px;border-radius:6px;cursor:pointer;user-select:none}
+  .tr:hover{background:var(--hover)}
+  .tr.sel{background:var(--active)}
+  .tr .chev{width:14px;height:14px;color:var(--text-3);flex:none;transition:transform .1s;display:flex;align-items:center;justify-content:center}
+  .tr .chev svg{width:12px;height:12px}
+  .tr.open>.chev{transform:rotate(90deg)}
+  .tr .ic{width:16px;height:16px;color:var(--text-2);flex:none}
+  .tr .ic svg{width:15px;height:15px}
+  .tr .tname{flex:1;min-width:0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tr.l1 .tname{font-weight:600}
+  .tr.l2{color:var(--text-2)}
+  .tr.l3{color:var(--text-2)}
+  .tr .tdur{font-size:11.5px;color:var(--text-3);font-variant-numeric:tabular-nums}
+  .tr .dot{width:7px;height:7px}
+  .kids{display:none}
+  .kids.open{display:block}
+  .indent-1{padding-left:20px}
+  .indent-2{padding-left:40px}
+  .indent-3{padding-left:60px}
+
+  /* logs */
+  .log{border:1px solid var(--border);border-radius:8px;background:var(--panel);overflow:hidden;display:flex;flex-direction:column}
+  .log-h{display:flex;align-items:center;gap:10px;padding:0 14px;height:42px;border-bottom:1px solid var(--border-2)}
+  .log-h .lt{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .log-h .lsub{font-size:11.5px;color:var(--text-3);font-family:var(--mono)}
+  .log-h .sp{flex:1}
+  .log-h .srch{position:relative}
+  .log-h .srch input{width:150px;height:26px;padding:0 8px 0 26px;border:1px solid var(--border);border-radius:5px;font-size:12px;outline:none;background:#fff}
+  .log-h .srch input:focus{border-color:var(--text)}
+  .log-h .srch svg{position:absolute;left:7px;top:6px;width:12px;height:12px;color:var(--text-3)}
+  .log-b{overflow:auto;padding:10px 0;font-family:var(--mono);font-size:12px;line-height:1.65}
+  .ll{display:flex;padding:0 8px;white-space:pre;border-left:2px solid transparent}
+  .ll:hover{background:#FAFAFA}
+  .ll.hit{border-left-color:var(--text)}
+  .ln{width:44px;text-align:right;padding-right:12px;color:#D4D4D8;flex:none;user-select:none}
+  .ts{width:58px;padding-right:10px;color:#D4D4D8;flex:none;user-select:none}
+  .txt{color:#27272A}
+  .txt.err{color:#B91C1C}
+  .txt.grn{color:#15803D}
+  mark{background:#FEF08A;color:inherit;border-radius:2px;padding:0 1px}
+  .log-foot{border-top:1px solid var(--border-2);padding:6px 14px;display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--text-3)}
+  .switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text-2);user-select:none}
+  .switch i{width:26px;height:15px;border-radius:8px;background:#D4D4D8;position:relative;transition:background .15s}
+  .switch i::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .switch.on i{background:var(--text)}
+  .switch.on i::after{left:13px}
+
+  /* meta panel */
+  .kv{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--border-2);font-size:12.5px}
+  .kv:last-child{border-bottom:0}
+  .kv .k{width:92px;flex:none;color:var(--text-3)}
+  .kv .v{flex:1;color:var(--text-2);word-break:break-all;font-family:var(--mono);font-size:12px}
+  .kv .v.plain{font-family:var(--sans);font-size:12.5px}
+
+  /* modal / drawer / menu / palette / toast */
+  .overlay{position:fixed;inset:0;background:rgba(9,9,11,.38);z-index:50;display:flex;align-items:center;justify-content:center;animation:fade .12s}
+  .modal{background:#fff;border-radius:10px;box-shadow:0 20px 50px rgba(0,0,0,.16);width:440px;max-width:calc(100vw - 40px);animation:pop .14s}
+  .modal.m-lg{width:560px}
+  .m-h{display:flex;align-items:center;gap:10px;padding:16px 20px 0}
+  .m-h .mt{font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .m-b{padding:14px 20px 0;font-size:13.5px;color:var(--text-2)}
+  .m-f{display:flex;justify-content:flex-end;gap:8px;padding:18px 20px 20px}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes pop{from{opacity:0;transform:scale(.97) translateY(4px)}to{opacity:1;transform:none}}
+
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:760px;max-width:100vw;background:#fff;border-left:1px solid var(--border);box-shadow:-20px 0 60px rgba(0,0,0,.08);z-index:60;display:flex;flex-direction:column;animation:slide .18s}
+  @keyframes slide{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+  .d-h{display:flex;align-items:center;gap:12px;height:56px;padding:0 20px;border-bottom:1px solid var(--border-2);flex:none}
+  .d-h .dt{font-size:15px;font-weight:600}
+  .d-b{flex:1;overflow-y:auto;padding:20px}
+  .d-f{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid var(--border-2);background:#fff;flex:none}
+  .d-f .sp{flex:1}
+
+  .menu{position:fixed;z-index:70;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 10px 34px rgba(0,0,0,.12);padding:5px;min-width:170px;animation:pop .1s}
+  .menu .mi{display:flex;align-items:center;gap:9px;height:30px;padding:0 9px;border-radius:5px;font-size:13px;color:var(--text);cursor:pointer}
+  .menu .mi:hover{background:var(--hover)}
+  .menu .mi svg{width:14px;height:14px;color:var(--text-2)}
+  .menu .mi.danger{color:var(--red)}
+  .menu .mi.danger svg{color:var(--red)}
+  .menu .sep{height:1px;background:var(--border-2);margin:5px 4px}
+
+  .palette{position:fixed;top:14vh;left:50%;transform:translateX(-50%);width:580px;max-width:calc(100vw - 40px);background:#fff;border-radius:10px;box-shadow:0 24px 70px rgba(0,0,0,.2),0 0 0 1px var(--border);z-index:80;overflow:hidden;animation:pop .13s}
+  .palette input{width:100%;height:46px;padding:0 16px;border:0;outline:none;font-size:14px;background:transparent}
+  .palette .pl{max-height:330px;overflow-y:auto;padding:6px;border-top:1px solid var(--border-2)}
+  .palette .pg{font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;padding:8px 10px 4px}
+  .palette .pi{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;font-size:13.5px;cursor:pointer}
+  .palette .pi svg{width:15px;height:15px;color:var(--text-2)}
+  .palette .pi.sel{background:var(--hover)}
+  .palette .pi .hk{margin-left:auto;font-size:11px;color:var(--text-3)}
+
+  .toasts{position:fixed;right:20px;bottom:20px;z-index:90;display:flex;flex-direction:column;gap:8px}
+  .toast{display:flex;align-items:center;gap:9px;background:#18181B;color:#fff;font-size:13px;padding:10px 14px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.25);animation:pop .15s}
+  .toast svg{width:14px;height:14px;flex:none}
+  .toast.ok svg{color:#4ADE80}
+  .toast.err svg{color:#F87171}
+
+  .tabs2{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .tabs2 button{height:30px;padding:0 14px;border:0;background:#fff;font-size:12.5px;font-weight:500;color:var(--text-2)}
+  .tabs2 button+.tabs2 button{border-left:1px solid var(--border)}
+  .tabs2 button.on{background:var(--hover);color:var(--text)}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:var(--text-2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+  .env-tag{display:inline-flex;align-items:center;gap:6px;background:var(--hover);border-radius:5px;padding:3px 8px;font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
+  .codeblock{background:#FCFCFD;border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.6;color:#27272A;overflow:auto;white-space:pre}
+  .codeblock .cm{color:var(--text-3)}
+  .codeblock .ky{color:#B45309}
+  .codeblock .st{color:#15803D}
+  .hint-line{font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:6px}
+  .prog{height:5px;border-radius:3px;background:var(--border-2);overflow:hidden;flex:1}
+  .prog i{display:block;height:100%;background:var(--text);border-radius:3px;transition:width .4s}
+  .vstage{border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden}
+  .vstage-h{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#FCFCFD;border-bottom:1px solid var(--border-2);font-weight:600;font-size:13px}
+  .vjob{padding:8px 14px 8px 26px;border-bottom:1px solid var(--border-2);font-size:12.5px;color:var(--text-2);display:flex;align-items:center;gap:8px}
+  .vstep{padding:6px 14px 6px 48px;font-family:var(--mono);font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:8px}
+  .vstep .cmd{color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+  .qlabel{font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v6h4V4h4v16h-4v-6h-4v6H6z"/></svg></div>
+      <span class="nm">Pipeline</span>
+      <span class="ver">v0.1.0</span>
+    </div>
+    <nav class="sb-nav" id="sb-nav"></nav>
+    <div class="sb-foot">
+      <div class="srv-state"><span class="dot green"></span>服务运行中 · :8080</div>
+      <div class="srv-state" style="margin-top:2px"><span style="width:20px;height:20px;border-radius:50%;background:var(--hover);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">零</span>admin <span style="margin-left:auto">⋮</span></div>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar" id="topbar"></div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+<div id="roots"></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Pipeline Web · 产品原型（静态可交互，数据为 mock）
+   ============================================================ */
+
+/* ---------- icons ---------- */
+const I = {
+  overview:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  layers:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 12 10 5 10-5"/><path d="m2 17 10 5 10-5"/></svg>',
+  runs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 1 2.3 5.6"/><path d="M4 12V6"/><path d="M4 12h6"/></svg>',
+  queue:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="3.5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="3.5" cy="18" r="1" fill="currentColor" stroke="none"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><circle cx="4" cy="12" r="2"/><circle cx="12" cy="10" r="2"/><circle cx="20" cy="14" r="2"/></svg>',
+  play:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l13-7.5-13-7.5z" fill="currentColor" stroke="none"/></svg>',
+  stop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor" stroke="none"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 12.5 5 5 10-11"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
+  copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>',
+  rr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.6"/><path d="M20 4v7h-7"/></svg>',
+  more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  term:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>',
+  cmd:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6a3 3 0 1 0 0 6h6a3 3 0 1 0 0-6 3 3 0 0 0 0 6H9a3 3 0 1 0 0-6z"/><path d="M15 18H9a3 3 0 1 0 0 6 3 3 0 0 0 0-6h6a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" transform="scale(1,-1) translate(0,-24)"/></svg>',
+  spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>',
+};
+function ic(n,s){ return `<span class="ic" style="display:inline-flex;width:${s||16}px;height:${s||16}px;flex:none">${I[n]||''}</span>`; }
+
+/* ---------- helpers ---------- */
+function $(sel,root){ return (root||document).querySelector(sel); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function hash(){ const h=location.hash.replace(/^#\/?/,''); return h.split('/').filter(Boolean); }
+function go(h){ location.hash = h; }
+function fmtDur(sec){ if(sec==null) return '—'; if(sec<60) return sec+'s'; if(sec<3600) return Math.floor(sec/60)+'m '+Math.round(sec%60)+'s'; return Math.floor(sec/3600)+'h '+Math.round((sec%3600)/60)+'m'; }
+function fmtClock(t){ const d=new Date(t); const p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+function relTime(t){ const s=(Date.now()-t)/1000; if(s<60) return '刚刚'; if(s<3600) return Math.floor(s/60)+' 分钟前'; if(s<86400) return Math.floor(s/3600)+' 小时前'; return Math.floor(s/86400)+' 天前'; }
+function shortId(id){ return id.length>9 ? id.slice(0,9) : id; }
+function mulberry(seed){ let a=seed>>>0; return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function seedOf(str){ let h=2166136261; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+
+const ST = {
+  pending:  {label:'排队中',  cls:'',        dot:'gray'},
+  running:  {label:'运行中',  cls:'blue',    dot:'blue'},
+  succeeded:{label:'成功',    cls:'green',   dot:'green'},
+  failed:   {label:'失败',    cls:'red',     dot:'red'},
+  cancelled:{label:'已取消',  cls:'',        dot:'gray'},
+};
+function dotHtml(s){ return `<span class="dot ${ST[s]?ST[s].dot:''}"></span>`; }
+function badgeHtml(s){ return `<span class="badge">${dotHtml(s)}${ST[s]?ST[s].label:s}</span>`; }
+function pillHtml(s){ return `<span class="pill">${dotHtml(s)}${ST[s]?ST[s].label:s}</span>`; }
+
+/* ---------- mock data ---------- */
+const now = Date.now(), M=60000, H=3600000;
+
+const PLANS = {
+  pl_ci: {
+    name:'CI', desc:'构建 Zmicro Docker 镜像 · 检出 → 构建 → 测试 → 部署',
+    yaml:`name: CI
+
+stages:
+  - name: checkout
+    jobs:
+      - name: frontend
+        steps:
+          - name: checkout
+            command: git clone --progress --depth 1 -b master https://github.com/go-idp/pipeline $PWD
+  - name: build
+    jobs:
+      - name: build
+        steps:
+          - name: go build
+            command: go build -o pipeline ./cmd/pipeline
+  - name: test
+    jobs:
+      - name: test
+        steps:
+          - name: go test
+            command: go test ./...
+  - name: deploy
+    type: deploy
+    mode: serial
+    jobs:
+      - name: deploy
+        steps:
+          - name: docker build
+            command: docker buildx build --push -t registry.idp.example.com/idp/backend:test-pipeline .`,
+    stages:[
+      {name:'checkout', mode:'serial', jobs:[{name:'frontend', steps:[{name:'checkout', cmd:'git clone --progress --depth 1 -b master https://github.com/go-idp/pipeline $PWD'}]}]},
+      {name:'build',    mode:'parallel', jobs:[{name:'build', steps:[{name:'go build', cmd:'go build -o pipeline ./cmd/pipeline'}]}]},
+      {name:'test',     mode:'parallel', jobs:[{name:'test', steps:[{name:'go test', cmd:'go test ./...'}]}]},
+      {name:'deploy',   mode:'serial', jobs:[{name:'deploy', steps:[{name:'docker build', cmd:'docker buildx build --push -t registry.idp.example.com/idp/backend:test-pipeline .'}]}]},
+    ],
+  },
+  pl_release: {
+    name:'发布', desc:'lint → 测试 → 构建产物 → 发布到 registry', yaml:`name: release
+
+stages:
+  - name: lint
+    jobs:
+      - name: lint
+        steps:
+          - name: golangci-lint
+            command: golangci-lint run ./...
+  - name: test
+    jobs:
+      - name: test
+        steps:
+          - name: go test
+            command: go test -race ./...
+  - name: build
+    jobs:
+      - name: build
+        steps:
+          - name: goreleaser
+            command: goreleaser release --skip-publish
+  - name: publish
+    type: deploy
+    mode: serial
+    jobs:
+      - name: publish
+        steps:
+          - name: push artifacts
+            command: goreleaser release`,
+    stages:[
+      {name:'lint', mode:'parallel', jobs:[{name:'lint', steps:[{name:'golangci-lint', cmd:'golangci-lint run ./...'}]}]},
+      {name:'test', mode:'parallel', jobs:[{name:'test', steps:[{name:'go test', cmd:'go test -race ./...'}]}]},
+      {name:'build', mode:'parallel', jobs:[{name:'build', steps:[{name:'goreleaser', cmd:'goreleaser release --skip-publish'}]}]},
+      {name:'publish', mode:'serial', jobs:[{name:'publish', steps:[{name:'push artifacts', cmd:'goreleaser release'}]}]},
+    ],
+  },
+  pl_deploy: {
+    name:'部署', desc:'生产环境部署 · 构建镜像 → 推送 → 更新 K8s', yaml:`name: deploy
+
+environment:
+  REGISTRY: registry.idp.example.com
+
+stages:
+  - name: build-image
+    jobs:
+      - name: build
+        steps:
+          - name: docker build
+            command: docker build -t $REGISTRY/idp/backend:$BUILD_ID .
+  - name: push
+    jobs:
+      - name: push
+        steps:
+          - name: docker push
+            command: docker push $REGISTRY/idp/backend:$BUILD_ID
+  - name: deploy
+    type: deploy
+    mode: serial
+    jobs:
+      - name: k8s
+        steps:
+          - name: kubectl apply
+            command: kubectl set image deployment/idp-backend backend=$REGISTRY/idp/backend:$BUILD_ID`,
+    stages:[
+      {name:'build-image', mode:'parallel', jobs:[{name:'build', steps:[{name:'docker build', cmd:'docker build -t $REGISTRY/idp/backend:$BUILD_ID .'}]}]},
+      {name:'push', mode:'parallel', jobs:[{name:'push', steps:[{name:'docker push', cmd:'docker push $REGISTRY/idp/backend:$BUILD_ID'}]}]},
+      {name:'deploy', mode:'serial', jobs:[{name:'k8s', steps:[{name:'kubectl apply', cmd:'kubectl set image deployment/idp-backend backend=$REGISTRY/idp/backend:$BUILD_ID'}]}]},
+    ],
+  },
+  pl_nightly: {
+    name:'夜间基准', desc:'每日 02:00 自动运行的性能基准测试', yaml:`name: nightly-benchmark
+
+environment:
+  CI: "true"
+
+stages:
+  - name: bench
+    jobs:
+      - name: benchmark
+        steps:
+          - name: go bench
+            command: go test -bench=. -benchmem ./...`,
+    stages:[
+      {name:'bench', mode:'parallel', jobs:[{name:'benchmark', steps:[{name:'go bench', cmd:'go test -bench=. -benchmem ./...'}]}]},
+    ],
+  },
+  pl_docs: {
+    name:'文档', desc:'构建并发布 VitePress 文档站点', yaml:`name: docs
+
+stages:
+  - name: build-docs
+    jobs:
+      - name: docs
+        steps:
+          - name: vitepress build
+            command: pnpm run docs:build
+  - name: publish-docs
+    type: deploy
+    mode: serial
+    jobs:
+      - name: publish
+        steps:
+          - name: gh-pages
+            command: pnpm run docs:publish`,
+    stages:[
+      {name:'build-docs', mode:'parallel', jobs:[{name:'docs', steps:[{name:'vitepress build', cmd:'pnpm run docs:build'}]}]},
+      {name:'publish-docs', mode:'serial', jobs:[{name:'publish', steps:[{name:'gh-pages', cmd:'pnpm run docs:publish'}]}]},
+    ],
+  },
+};
+const PIPE_IDS = Object.keys(PLANS);
+
+let pipelines = PIPE_IDS.map(id=>({id, ...PLANS[id], enabled:true, runs:0}));
+pipelines.forEach((p,i)=>{ p.enabled = !(i===3); });
+
+let runs = [
+  {id:'r_9f3k2', pipelineId:'pl_ci',   status:'running',   trigger:'手动', startedAt: now-3*M,  live:true},
+  {id:'r_8a1x9', pipelineId:'pl_deploy',status:'succeeded', trigger:'手动', startedAt: now-42*M, dur:96},
+  {id:'r_7c2v4', pipelineId:'pl_ci',   status:'failed',    trigger:'GitHub', startedAt: now-2*H,  dur:84, error:'step "go test" failed: exit status 1'},
+  {id:'r_6d9p1', pipelineId:'pl_release',status:'succeeded',trigger:'手动', startedAt: now-5*H,  dur:312},
+  {id:'r_5e8q3', pipelineId:'pl_nightly',status:'succeeded',trigger:'定时', startedAt: now-12*H, dur:900},
+  {id:'r_4f7r2', pipelineId:'pl_ci',   status:'cancelled', trigger:'手动', startedAt: now-26*H, dur:41},
+  {id:'r_3g6s9', pipelineId:'pl_docs', status:'succeeded', trigger:'手动', startedAt: now-2*86400000, dur:57},
+  {id:'r_2h5t4', pipelineId:'pl_deploy',status:'failed',   trigger:'API',   startedAt: now-3*86400000, dur:33, error:'docker push failed: denied'},
+  {id:'r_1j4u8', pipelineId:'pl_ci',   status:'succeeded', trigger:'GitHub', startedAt: now-4*86400000, dur:78},
+  {id:'r_a0b1c', pipelineId:'pl_release',status:'pending', trigger:'手动', startedAt: now-25*1000},
+  {id:'r_d2e3f', pipelineId:'pl_docs', status:'pending',   trigger:'API',   startedAt: now-40*1000},
+];
+runs.forEach(r=>{ const p=pipelines.find(x=>x.id===r.pipelineId); if(p) p.runs++; });
+
+/* ---------- app state ---------- */
+const A = { search:'', runFilter:'all', pipeFilter:'all', sel:new Set(), detail:null, liveLines:0 };
+
+/* ---------- log generator ---------- */
+function stepLogs(run, stepName, status, rng){
+  const L=[];
+  const push=(t,s)=>L.push({t,s});
+  const k=stepName.toLowerCase();
+  if(k.includes('checkout')){
+    push('o','$ git clone --progress --depth 1 -b master https://github.com/go-idp/pipeline $PWD');
+    push('o','Cloning into \'.\'...');
+    push('o','remote: Enumerating objects: 320, done.');
+    push('o','remote: Counting objects: 100% (320/320), done.');
+    push('o','remote: Compressing objects: 100% (158/158), done.');
+    push('o','Receiving objects: 100% (320/320), 18.42 MiB | 9.8 MiB/s, done.');
+    push('o','Resolving deltas: 100% (150/150), done.');
+    push('o','Checking out files: 100% (212/212), done.');
+  } else if(k.includes('build') && k.includes('docker')){
+    push('o','$ docker buildx build --push -t registry.idp.example.com/idp/backend:test-pipeline .');
+    push('o','#1 [internal] load build definition from Dockerfile');
+    push('o','#1 transferring dockerfile: 472B done');
+    push('o','#2 [internal] load .dockerignore');
+    push('o','#3 [internal] load metadata for docker.io/library/golang:1.21-alpine');
+    push('o','#4 [1/5] FROM docker.io/library/golang:1.21-alpine@sha256:abc123');
+    push('o','#5 [2/5] COPY go.mod go.sum ./');
+    push('o','#5 CACHED');
+    push('o','#6 [3/5] RUN go mod download');
+    push('o','#7 [4/5] COPY . .');
+    push('o','#8 [5/5] RUN go build -o /app/pipeline ./cmd/pipeline');
+    push('o','#8 DONE 12.4s');
+    push('o','#9 exporting to image');
+    push('o','#9 exporting layers 18.6s done');
+    push('o','#9 writing image sha256:8f3c... done');
+    push('o','#9 naming to registry.idp.example.com/idp/backend:test-pipeline done');
+    push('o','#9 pushing manifest for registry.idp.example.com/idp/backend:test-pipeline');
+    push('o','#9 DONE 4.2s');
+  } else if(k.includes('go build')){
+    push('o','$ go build -o pipeline ./cmd/pipeline');
+    push('o','go: downloading github.com/go-zoox/zoox v1.9.2');
+    push('o','go: downloading github.com/go-zoox/fs v1.9.0');
+    push('o','go: downloading golang.org/x/sys v0.28.0');
+  } else if(k.includes('go test')){
+    push('o','$ go test ./...');
+    push('o','ok  	github.com/go-idp/pipeline	0.462s');
+    push('o','ok  	github.com/go-idp/pipeline/job	0.118s');
+    push('o','ok  	github.com/go-idp/pipeline/stage	0.203s');
+    push('o','ok  	github.com/go-idp/pipeline/step	0.311s');
+    if(status==='failed'){ push('e','--- FAIL: TestRunPipeline'); push('e','    run_test.go:42: expected exit code 0, got 1'); push('e','FAIL'); push('e','FAIL	github.com/go-idp/pipeline	1.204s'); }
+  } else if(k.includes('kubectl')){
+    push('o','$ kubectl set image deployment/idp-backend backend=registry.idp.example.com/idp/backend:10086');
+    push('o','deployment.apps/idp-backend image updated');
+    push('o','Waiting for deployment "idp-backend" rollout to finish: 0 of 3 updated replicas are available...');
+    push('o','deployment "idp-backend" successfully rolled out');
+  } else if(k.includes('bench')){
+    push('o','$ go test -bench=. -benchmem ./...');
+    push('o','BenchmarkPipelineRun-10    	   48752	     24679 ns/op	    4288 B/op	      42 allocs/op');
+    push('o','BenchmarkStepExec-10      	   20311	     58910 ns/op	   11200 B/op	      96 allocs/op');
+    push('o','PASS');
+  } else if(k.includes('docs')||k.includes('vitepress')){
+    push('o','$ pnpm run docs:build');
+    push('o','> pipeline@0.1.0 docs:build /workspace');
+    push('o','vitepress v1.6.4');
+    push('o','building client + server bundles...');
+    push('o','rendering pages...');
+    push('o','build complete in 6.2s.');
+  } else if(k.includes('lint')){
+    push('o','$ golangci-lint run ./...');
+    push('o','level=info msg="[linters context] golangci-lint v1.61.0"');
+    push('o','level=info msg="[runner] issues found: 0"');
+  } else if(k.includes('push')||k.includes('artifacts')||k.includes('goreleaser')){
+    push('o','$ goreleaser release');
+    push('o','• releasing using goreleaser v2.3.1');
+    push('o','• building binaries');
+    push('o','• archives');
+    push('o','• publishing');
+    push('o','• succeeded');
+  } else {
+    const pool=['$ '+stepName,'==> Running step: '+stepName,'[INFO] start','[INFO] processing...','[INFO] done'];
+    pool.forEach(s=>push('o',s));
+  }
+  // 统一收尾
+  if(status==='succeeded') push('o','✔ Step "'+stepName+'" succeeded');
+  else if(status==='failed') push('e','✘ Step "'+stepName+'" failed');
+  // 抖动：随机补 2-4 行
+  const extra=['[pipeline] workdir: /tmp/go-idp/pipeline/'+run.id,'[pipeline] environment: PIPELINE_RUNNER=pipeline','$ echo "[$(date)] done"','[$(date)] done'];
+  const n=2+Math.floor(rng()*3);
+  for(let i=0;i<n;i++) push(rng()>0.85?'e':'o', extra[Math.floor(rng()*extra.length)]);
+  return L;
+}
+
+/* ---------- run detail model ---------- */
+function stagesModel(run){
+  const plan=pipelines.find(p=>p.id===run.pipelineId) || pipelines[0];
+  const rng=mulberry(seedOf(run.id));
+  const stages=[];
+  let idx=0, failPoint=-1;
+  if(run.status==='failed'||run.status==='cancelled') failPoint = 1+Math.floor(rng()*(plan.stages.length-1));
+  const totalSteps=plan.stages.reduce((n,s)=>n+s.jobs.reduce((m,j)=>m+j.steps.length,0),0);
+  let step=0;
+  plan.stages.forEach((s,si)=>{
+    const jobs=[];
+    let stageDur=0;
+    s.jobs.forEach(j=>{
+      const steps=j.steps.map(stepDef=>{
+        const i=step++;
+        let st;
+        if(run.live) st='pending';
+        else if(run.status==='pending') st='pending';
+        else if(run.status==='succeeded') st='succeeded';
+        else if(i<failPoint) st='succeeded';
+        else if(i===failPoint) st=(run.status==='failed')?'failed':'cancelled';
+        else st='pending';
+        const dur=st==='succeeded'||st==='failed' ? 2+Math.floor(rng()*22) : (st==='cancelled'?Math.floor(rng()*8):0);
+        stageDur+=dur;
+        return {name:stepDef.name, cmd:stepDef.cmd, st, dur, lines: st==='pending'&&!run.live?[]:stepLogs(run,stepDef.name,st,rng)};
+      });
+      jobs.push({name:j.name, steps});
+    });
+    let sst;
+    if(run.live) sst= si===0?'running':'pending';
+    else if(run.status==='pending') sst='pending';
+    else if(run.status==='succeeded') sst='succeeded';
+    else if(si*1 < failPoint) sst='succeeded';
+    else if(si===failPoint) sst=(run.status==='failed')?'failed':'cancelled';
+    else sst='pending';
+    stages.push({name:s.name, mode:s.mode, jobs, st:sst, dur: stageDur>0?stageDur:0});
+  });
+  return {plan, stages};
+}
+
+/* ---------- live run simulation ---------- */
+const liveRun = runs.find(r=>r.live);
+const liveModel = liveRun ? stagesModel(liveRun) : null;
+let liveCursor = {si:0, ji:0, ki:0, li:0, stepStart:null, stepElapsed:0, opened:false};
+function liveTotalSteps(m){ return m.plan.stages.reduce((n,s)=>n+s.jobs.reduce((x,j)=>x+j.steps.length,0),0); }
+function liveFlat(m){ const f=[]; m.stages.forEach(s=>s.jobs.forEach(j=>j.steps.forEach(k=>f.push({s,j,k})))); return f; }
+function liveTick(){
+  if(!liveRun || liveRun.status!=='running') return;
+  const flat=liveFlat(liveModel);
+  const cur=liveCursor;
+  const total=flat.length;
+  if(cur.si>=total){ // finished
+    liveRun.status='succeeded'; liveRun.dur=Math.round((Date.now()-liveRun.startedAt)/1000);
+    liveModel.stages.forEach(s=>{ s.st='succeeded'; });
+    toast('运行 '+shortId(liveRun.id)+' 完成','ok');
+    if(A.detail===liveRun.id) renderRunDetail();
+    else if(!hash()[0]) renderOverview();
+    return;
+  }
+  const el=flat[cur.si];
+  if(cur.li===0){ cur.stepStart=Date.now(); el.s.st=el.s.st==='running'?el.s.st:'running'; el.j.st='running'; el.k.st='running'; }
+  const lines=el.k.lines;
+  if(cur.li<lines.length){
+    const n=1+Math.floor(Math.random()*1.6);
+    for(let i=0;i<n&&cur.li<lines.length;i++,cur.li++){
+      const l=lines[cur.li]; el.k.view=el.k.view||[]; el.k.view.push(l);
+      A.liveLines++;
+    }
+  } else {
+    el.k.st='succeeded'; el.j.st='succeeded';
+    const stageEl=liveModel.stages.find(s=>s.jobs.includes(el.j));
+    const done=stageEl.jobs.every(j=>j.steps.every(k=>k.st!=='running'&&k.st!=='pending'));
+    if(done){ stageEl.st='succeeded'; stageEl.dur=Math.round((Date.now()-liveRun.startedAt)/1000); }
+    cur.si++; cur.li=0;
+    if(cur.si<total){ const nx=flat[cur.si]; nx.s.st='running'; }
+    else { liveRun.status='succeeded'; liveRun.dur=Math.round((Date.now()-liveRun.startedAt)/1000); toast('运行 '+shortId(liveRun.id)+' 完成','ok'); }
+  }
+  if(A.detail===liveRun.id){ renderRunDetail(); }
+  else if(!hash()[0]){ renderOverview(); }
+  else if(hash()[0]==='runs'||hash()[0]==='queue'||hash()[0]==='pipelines'){ /* 静默更新 nav 计数 */ }
+  renderSidebar();
+}
+setInterval(liveTick, 1600);
+
+/* ---------- rendering ---------- */
+const content=$('#content'), topbar=$('#topbar');
+
+function renderSidebar(){
+  const running=runs.filter(r=>r.status==='running').length;
+  const pending=runs.filter(r=>r.status==='pending').length;
+  const h=hash();
+  const items=[
+    ['overview','总览','overview','',h[0]==='overview'||!h[0]],
+    ['pipelines','流水线','layers','',h[0]==='pipelines'],
+    ['runs','运行','runs',running||'',h[0]==='runs'],
+    ['queue','队列','queue',pending||'',h[0]==='queue'],
+    ['settings','设置','settings','',h[0]==='settings'],
+  ];
+  $('#sb-nav').innerHTML = items.map(([id,label,icn,cnt,on])=>
+    `<div class="nav-item ${on?'active':''}" data-nav="${id}">${I[icn]}${label}${cnt?`<span class="cnt">${cnt}</span>`:''}</div>`).join('');
+  $('#sb-nav').querySelectorAll('[data-nav]').forEach(el=>el.onclick=()=>go('/'+el.dataset.nav));
+}
+
+function renderTopbar(){
+  const h=hash();
+  let title='总览', crumb='';
+  if(!h[0]){ title='总览'; }
+  else if(h[0]==='pipelines'){
+    if(h[1]){ const p=pipelines.find(x=>x.id===h[1]); title=p?p.name:'流水线'; crumb='流水线 / <b>'+esc(title)+'</b>'; }
+    else title='流水线';
+  } else if(h[0]==='runs'){
+    if(h[1]){ const r=runs.find(x=>x.id===h[1]); title=r?'运行 '+shortId(r.id):'运行'; crumb='运行 / <b>'+shortId(h[1])+'</b>'; }
+    else title='运行';
+  } else if(h[0]==='queue'){ title='队列'; }
+  else if(h[0]==='settings'){ title='设置'; }
+  const onSearch = (h[0]==='runs'||h[0]==='pipelines') && !h[1];
+  topbar.innerHTML=`
+    <div class="tb-title">${title}</div>
+    ${crumb?`<div class="tb-crumb">${crumb}</div>`:''}
+    <div class="tb-spacer"></div>
+    ${onSearch?`
+      <div class="tb-search">${I.search}<input id="tb-search" placeholder="搜索${h[0]==='runs'?'运行':''}…" value="${esc(A.search)}"><span class="hint">/</span></div>
+      `:''}
+    <button class="btn" data-kbd="cmd"><span style="display:flex">${I.cmd}</span></button>
+    <button class="btn btn-primary" data-act="new"><span style="display:flex">${I.plus}</span>新建流水线</button>`;
+  const si=$('#tb-search',topbar); if(si){ si.oninput=e=>{ A.search=e.target.value; (h[0]==='runs')?renderRuns():renderPipelines(); }; si.onkeydown=e=>{ if(e.key==='Escape'){si.blur();} }; }
+  topbar.querySelector('[data-act="new"]').onclick=()=>openEditor(null);
+  topbar.querySelector('[data-kbd="cmd"]').onclick=()=>openPalette();
+}
+
+function render(){
+  const h=hash();
+  renderSidebar(); renderTopbar();
+  const navItems=document.querySelectorAll('.nav-item');
+  if(!h[0]||h[0]==='overview') renderOverview();
+  else if(h[0]==='pipelines'&&h[1]) renderPipelineDetail(h[1]);
+  else if(h[0]==='pipelines') renderPipelines();
+  else if(h[0]==='runs'&&h[1]) renderRunDetail(h[1]);
+  else if(h[0]==='runs') renderRuns();
+  else if(h[0]==='queue') renderQueue();
+  else if(h[0]==='settings') renderSettings();
+  else renderOverview();
+}
+
+/* ---------- overview ---------- */
+function renderOverview(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const todayRuns=runs.filter(r=>r.startedAt>=today.getTime());
+  const last7=runs.filter(r=>r.startedAt>=Date.now()-7*86400000);
+  const ok7=last7.filter(r=>r.status==='succeeded').length;
+  const rate=last7.length?Math.round(ok7/last7.length*100):0;
+  const avgDurs=last7.filter(r=>r.dur).map(r=>r.dur);
+  const avg=avgDurs.length?Math.round(avgDurs.reduce((a,b)=>a+b,0)/avgDurs.length):0;
+  const running=runs.filter(r=>r.status==='running').length;
+  // 14 天趋势
+  const days=[];
+  for(let i=13;i>=0;i--){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-i); const s=d.getTime(), e=s+86400000; const rr=runs.filter(r=>r.startedAt>=s&&r.startedAt<e); days.push({label:(d.getMonth()+1)+'/'+d.getDate(), ok:rr.filter(x=>x.status==='succeeded').length, fail:rr.filter(x=>x.status==='failed').length}); }
+  const maxN=Math.max(1,...days.map(d=>d.ok+d.fail));
+  const dist={pending:runs.filter(r=>r.status==='pending').length, running:runs.filter(r=>r.status==='running').length, succeeded:runs.filter(r=>r.status==='succeeded').length, failed:runs.filter(r=>r.status==='failed').length, cancelled:runs.filter(r=>r.status==='cancelled').length};
+  const recent=runs.slice(0,8);
+  const quick=pipelines.slice(0,4);
+  content.innerHTML=`
+    <div class="stat-grid">
+      <div class="stat"><div class="lb">今日运行</div><div class="vl">${todayRuns.length}<small>次</small></div><div class="sb">较昨日 ${todayRuns.length>=2?'+':'−'}${Math.max(1,Math.abs(todayRuns.length-1))}</div></div>
+      <div class="stat"><div class="lb">近 7 天成功率</div><div class="vl">${rate}<small>%</small></div><div class="sb">${ok7} / ${last7.length} 次成功</div></div>
+      <div class="stat"><div class="lb">平均耗时</div><div class="vl">${fmtDur(avg)}</div><div class="sb">近 7 天 ${last7.length} 次运行</div></div>
+      <div class="stat"><div class="lb">当前运行中</div><div class="vl" style="display:flex;align-items:center;gap:10px">${running}<span class="dot blue" style="width:8px;height:8px"></span></div><div class="sb">并发上限 2</div></div>
+    </div>
+    <div class="ov-grid">
+      <div class="card">
+        <div class="card-h">近 14 天运行 <span class="sub">成功（灰）/ 失败（黑）</span></div>
+        <div class="card-b">
+          <div class="bars">${days.map(d=>`<div class="bar-wrap" title="${d.label}：成功 ${d.ok} · 失败 ${d.fail}"><div class="bar"><i class="ok" style="height:${d.ok/maxN*100}%"></i><i class="fail" style="height:${d.fail/maxN*100}%"></i></div><div class="dl">${d.label}</div></div>`).join('')}</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h">状态分布</div>
+        <div class="card-b">
+          ${[['running','运行中','blue'],['pending','排队中','gray'],['succeeded','成功','green'],['failed','失败','red'],['cancelled','已取消','gray']].map(([k,l,c])=>`
+            <div class="dist-row"><div class="dk"><span class="dot ${c}"></span>${l}</div><div class="dist-bar"><i style="width:${runs.length?dist[k]/runs.length*100:0}%;background:${c==='gray'?'#A1A1AA':c==='blue'?'#3B82F6':c==='green'?'#16A34A':'#DC2626'}"></i></div><div class="dv">${dist[k]}</div></div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="ov-grid">
+      <div class="card">
+        <div class="card-h">最近运行 <span class="sub">点击查看详情</span></div>
+        <div class="card-b" style="padding:6px 16px">
+          <div class="mini-list">${recent.map(r=>{const p=pipelines.find(x=>x.id===r.pipelineId);return `
+            <div class="mi" data-go="/runs/${r.id}">
+              <span class="badge">${dotHtml(r.status)}</span>
+              <div class="mn"><div class="t">${esc(p?p.name:r.id)} <span style="color:var(--text-3);font-weight:400;font-family:var(--mono);font-size:11.5px">#${shortId(r.id)}</span></div><div class="s">${r.trigger} · ${relTime(r.startedAt)}</div></div>
+              <div class="mt">${r.dur?fmtDur(r.dur):'—'}</div>
+            </div>`}).join('')}</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h">常用流水线</div>
+        <div class="card-b" style="padding:6px 16px">
+          <div class="mini-list">${quick.map(p=>`
+            <div class="mi" data-go="/pipelines/${p.id}">
+              <span class="ic" style="color:var(--text-2)">${I.layers}</span>
+              <div class="mn"><div class="t">${esc(p.name)}</div><div class="s">${p.stages.length} 个阶段</div></div>
+              <button class="btn btn-sm" data-run="${p.id}" style="flex:none">${I.play}运行</button>
+            </div>`).join('')}</div>
+        </div>
+      </div>
+    </div>`;
+  content.querySelectorAll('[data-go]').forEach(el=>el.onclick=()=>go(el.dataset.go));
+  content.querySelectorAll('[data-run]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); openRunModal(el.dataset.run); });
+}
+
+/* ---------- pipelines ---------- */
+function filterPipelines(){
+  const q=A.search.toLowerCase();
+  let list=pipelines.filter(p=>!q||p.name.toLowerCase().includes(q)||p.desc.toLowerCase().includes(q));
+  if(A.pipeFilter==='on') list=list.filter(p=>p.enabled);
+  if(A.pipeFilter==='off') list=list.filter(p=>!p.enabled);
+  return list;
+}
+function lastRunOf(pid){ return runs.find(r=>r.pipelineId===pid)||null; }
+function renderPipelines(){
+  const list=filterPipelines();
+  content.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <div class="seg">
+        <button class="${A.pipeFilter==='all'?'on':''}" data-f="all">全部 ${pipelines.length}</button>
+        <button class="${A.pipeFilter==='on'?'on':''}" data-f="on">已启用 ${pipelines.filter(p=>p.enabled).length}</button>
+        <button class="${A.pipeFilter==='off'?'on':''}" data-f="off">已停用 ${pipelines.filter(p=>!p.enabled).length}</button>
+      </div>
+      <div style="flex:1"></div>
+      ${A.sel.size?`<button class="btn btn-danger" data-batch="run">批量运行</button>`:''}
+      <button class="btn btn-primary" data-new>${I.plus}新建流水线</button>
+    </div>
+    <div class="card">
+      <table class="tbl">
+        <thead><tr><th class="row-check"></th><th>流水线</th><th>状态</th><th>最近运行</th><th>耗时</th><th>运行次数</th><th>最近运行时间</th><th style="text-align:right">操作</th></tr></thead>
+        <tbody>
+        ${list.length?list.map(p=>{const lr=lastRunOf(p.id);const checked=A.sel.has(p.id);return `
+          <tr data-go="/pipelines/${p.id}">
+            <td class="row-check" data-stop><input type="checkbox" data-chk="${p.id}" ${checked?'checked':''}></td>
+            <td><div style="font-weight:500">${esc(p.name)}</div><div style="font-size:12px;color:var(--text-3)">${esc(p.desc||'')}</div></td>
+            <td>${p.enabled?'<span class="chip">已启用</span>':'<span class="chip">已停用</span>'}</td>
+            <td>${lr?pillHtml(lr.status):'<span style="color:var(--text-3)">—</span>'}</td>
+            <td class="num">${lr&&lr.dur?fmtDur(lr.dur):'—'}</td>
+            <td class="num">${p.runs}</td>
+            <td style="color:var(--text-3)">${lr?relTime(lr.startedAt):'—'}</td>
+            <td data-stop><div class="row-actions">
+              <button class="btn btn-sm btn-primary" data-run="${p.id}" style="height:26px">${I.play}运行</button>
+              <button class="btn btn-icon btn-sm" data-more="${p.id}">${I.more}</button>
+            </div></td>
+          </tr>`}).join('')
+        :`<tr><td colspan="8"><div class="empty"><div class="ei">${I.layers}</div><div class="et">没有匹配的流水线</div><div class="es">调整搜索条件，或创建一个新的流水线</div><button class="btn" data-new>${I.plus}新建流水线</button></div></td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  content.querySelectorAll('tr[data-go]').forEach(tr=>{
+    const pid=tr.querySelector('[data-more]')?.dataset.more||tr.querySelector('[data-run]')?.dataset.run;
+    tr.onclick=e=>{ if(e.target.closest('[data-stop]'))return; go('/pipelines/'+pid); };
+  });
+  content.querySelectorAll('[data-run]').forEach(b=>b.onclick=e=>{e.stopPropagation();openRunModal(b.dataset.run);});
+  content.querySelectorAll('[data-more]').forEach(b=>b.onclick=e=>{e.stopPropagation();openRowMenu(b,'/pipelines/'+b.dataset.more);});
+  content.querySelectorAll('[data-new]').forEach(b=>b.onclick=()=>openEditor(null));
+  content.querySelectorAll('[data-chk]').forEach(c=>c.onchange=e=>{e.stopPropagation(); const id=c.dataset.chk; c.checked?A.sel.add(id):A.sel.delete(id); renderPipelines();});
+  content.querySelectorAll('[data-batch]').forEach(b=>b.onclick=()=>{ const ids=[...A.sel]; const p=ids.map(id=>pipelines.find(x=>x.id===id).name).join('、'); openRunModal(null,ids); });
+  content.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ A.pipeFilter=b.dataset.f; renderPipelines(); });
+}
+
+/* ---------- pipeline detail ---------- */
+function renderPipelineDetail(id){
+  const p=pipelines.find(x=>x.id===id);
+  if(!p){ content.innerHTML='<div class="empty">流水线不存在</div>'; return; }
+  const hist=runs.filter(r=>r.pipelineId===id);
+  content.innerHTML=`
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:18px">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px"><h1 style="font-size:19px;font-weight:650;letter-spacing:-.01em">${esc(p.name)}</h1>${p.enabled?'<span class="chip">已启用</span>':'<span class="chip">已停用</span>'}</div>
+        <div style="color:var(--text-2);margin-top:4px;font-size:13px">${esc(p.desc||'')}</div>
+        <div style="display:flex;gap:14px;margin-top:8px;font-size:12px;color:var(--text-3)">
+          <span>${p.stages.length} 个阶段</span><span>${p.runs} 次运行</span><span>ID <span style="font-family:var(--mono)">${p.id}</span></span>
+        </div>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn btn-primary" data-run="${p.id}">${I.play}运行</button>
+      <button class="btn" data-edit="${p.id}">编辑</button>
+      <button class="btn" data-copy="${p.id}">${I.copy}复制</button>
+      <button class="btn btn-icon" data-more="${p.id}">${I.more}</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-bottom:18px">
+      <div class="card">
+        <div class="card-h">定义 · Visual <span class="sub">yaml 优先，可视化预览</span></div>
+        <div class="card-b" style="padding:14px">
+          ${p.stages.map((s,si)=>`
+            <div class="vstage">
+              <div class="vstage-h"><span class="dot" style="background:var(--text)"></span>${esc(s.name)} <span class="chip" style="margin-left:auto">${s.mode}</span></div>
+              ${s.jobs.map(j=>`
+                <div class="vjob">${I.layers}<span style="font-weight:500">${esc(j.name)}</span></div>
+                ${j.steps.map(k=>`<div class="vstep">${I.term}<span>${esc(k.name)}</span><span class="cmd">${esc(k.cmd)}</span></div>`).join('')}
+              `).join('')}
+            </div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h">配置</div>
+          <div class="card-b" style="padding:10px 16px">
+            <div class="kv"><div class="k">workdir</div><div class="v">/tmp/go-idp/pipeline</div></div>
+            <div class="kv"><div class="k">timeout</div><div class="v">3600s</div></div>
+            <div class="kv"><div class="k">image</div><div class="v">—</div></div>
+            <div class="kv"><div class="k">environment</div><div class="v">CI=true · PIPELINE_RUNNER=pipeline</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h">定义 · YAML</div>
+          <div class="card-b" style="padding:10px 16px">
+            <div class="codeblock" style="max-height:220px;cursor:pointer" data-yaml="${p.id}">${esc(p.yaml.slice(0,420))}${p.yaml.length>420?'<span style="color:var(--text-3)">\n…</span>':''}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h">运行历史 <span class="sub">${hist.length} 次</span></div>
+      <table class="tbl">
+        <thead><tr><th>运行 ID</th><th>状态</th><th>触发</th><th>耗时</th><th class="num">开始时间</th><th style="text-align:right">操作</th></tr></thead>
+        <tbody>${hist.length?hist.map(r=>`
+          <tr data-go="/runs/${r.id}">
+            <td style="font-family:var(--mono);color:var(--text-2)">#${shortId(r.id)}</td>
+            <td>${pillHtml(r.status)}</td>
+            <td style="color:var(--text-2)">${r.trigger}</td>
+            <td>${r.dur?fmtDur(r.dur):'—'}</td>
+            <td class="num" style="color:var(--text-3)">${fmtClock(r.startedAt)} · ${relTime(r.startedAt)}</td>
+            <td data-stop><div class="row-actions"><button class="btn btn-icon btn-sm" data-more="${r.id}">${I.more}</button></div></td>
+          </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><div class="ei">${I.runs}</div><div class="et">还没有运行记录</div><div class="es">点击「运行」启动第一次执行</div></div></td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  content.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>openRunModal(p.id));
+  content.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEditor(p.id));
+  content.querySelectorAll('[data-more]').forEach(b=>b.onclick=e=>{e.stopPropagation();openRowMenu(b,'/pipelines/'+p.id);});
+  content.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{openEditor(null,{name:p.name+' (副本)'});});
+  content.querySelectorAll('[data-yaml]').forEach(el=>el.onclick=()=>openYamlModal(p.id));
+  content.querySelectorAll('tr[data-go]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('[data-stop]'))return; go(tr.dataset.go); });
+  content.querySelectorAll('[data-more]').forEach(b=>{});
+}
+
+/* ---------- runs ---------- */
+function filterRuns(){
+  let list=[...runs];
+  if(A.runFilter!=='all') list=list.filter(r=>r.status===A.runFilter);
+  const q=A.search.toLowerCase();
+  if(q) list=list.filter(r=>r.id.toLowerCase().includes(q)||(pipelines.find(p=>p.id===r.pipelineId)||{}).name.toLowerCase().includes(q));
+  return list;
+}
+function renderRuns(){
+  const list=filterRuns();
+  content.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="seg">
+        <button data-f="all" class="${A.runFilter==='all'?'on':''}">全部 ${runs.length}</button>
+        <button data-f="running" class="${A.runFilter==='running'?'on':''}">运行中 ${runs.filter(r=>r.status==='running').length}</button>
+        <button data-f="pending" class="${A.runFilter==='pending'?'on':''}">排队 ${runs.filter(r=>r.status==='pending').length}</button>
+        <button data-f="succeeded" class="${A.runFilter==='succeeded'?'on':''}">成功 ${runs.filter(r=>r.status==='succeeded').length}</button>
+        <button data-f="failed" class="${A.runFilter==='failed'?'on':''}">失败 ${runs.filter(r=>r.status==='failed').length}</button>
+        <button data-f="cancelled" class="${A.runFilter==='cancelled'?'on':''}">已取消 ${runs.filter(r=>r.status==='cancelled').length}</button>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn" data-exp="csv">导出 CSV</button>
+    </div>
+    <div class="card">
+      <table class="tbl">
+        <thead><tr><th>流水线</th><th>运行 ID</th><th>状态</th><th>耗时</th><th>触发</th><th class="num">开始时间</th><th style="text-align:right">操作</th></tr></thead>
+        <tbody>
+        ${list.length?list.map(r=>{const p=pipelines.find(x=>x.id===r.pipelineId);return `
+          <tr data-go="/runs/${r.id}">
+            <td><div style="font-weight:500">${esc(p?p.name:r.id)}</div></td>
+            <td style="font-family:var(--mono);color:var(--text-2)">#${shortId(r.id)}</td>
+            <td>${pillHtml(r.status)}</td>
+            <td style="font-variant-numeric:tabular-nums">${r.dur?fmtDur(r.dur):(r.status==='running'?'<span class="dot blue" style="display:inline-block;vertical-align:middle;margin-right:4px"></span>计时中':'—')}</td>
+            <td style="color:var(--text-2)">${r.trigger}</td>
+            <td class="num" style="color:var(--text-3)">${fmtClock(r.startedAt)} · ${relTime(r.startedAt)}</td>
+            <td data-stop><div class="row-actions">
+              ${(r.status==='running'||r.status==='pending')?`<button class="btn btn-sm" data-cancel="${r.id}">${I.stop}取消</button>`:''}
+              <button class="btn btn-sm" data-rerun="${r.id}">${I.rr}重跑</button>
+              <button class="btn btn-icon btn-sm" data-more="${r.id}">${I.more}</button>
+            </div></td>
+          </tr>`}).join('')
+        :`<tr><td colspan="7"><div class="empty"><div class="ei">${I.runs}</div><div class="et">${A.search?'没有匹配的运行':'还没有运行记录'}</div><div class="es">${A.search?'调整搜索条件':'从流水线页点击「运行」开始'}</div></div></td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  content.querySelectorAll('tr[data-go]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('[data-stop]'))return; go(tr.dataset.go); });
+  content.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{ A.runFilter=b.dataset.f; renderRuns(); });
+  content.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=e=>{e.stopPropagation();confirmModal('取消运行 #'+shortId(b.dataset.cancel),'运行将被终止，正在执行的步骤会立即停止。此操作不可撤销。',()=>cancelRun(b.dataset.cancel));});
+  content.querySelectorAll('[data-rerun]').forEach(b=>b.onclick=e=>{e.stopPropagation();openRerunModal(b.dataset.rerun);});
+  content.querySelectorAll('[data-more]').forEach(b=>b.onclick=e=>{e.stopPropagation();openRowMenu(b,null,b.dataset.more);});
+  content.querySelectorAll('[data-exp]').forEach(b=>b.onclick=()=>exportCsv());
+}
+
+function cancelRun(id){
+  const r=runs.find(x=>x.id===id); if(!r) return;
+  if(r.status==='running'||r.status==='pending'){ r.status='cancelled'; r.dur=r.dur||Math.round((Date.now()-r.startedAt)/1000); }
+  toast('运行 #'+shortId(id)+' 已取消','ok');
+  renderRuns(); renderSidebar();
+}
+
+/* ---------- run detail ---------- */
+let selStepKey=null;
+function renderRunDetail(id){
+  A.detail=id;
+  const r=runs.find(x=>x.id===id); if(!r){ content.innerHTML='<div class="empty">运行不存在</div>'; return; }
+  const m=stagesModel(r);
+  const pl=m.plan;
+  const dur=r.dur||(r.status==='running'?Math.round((Date.now()-r.startedAt)/1000):0);
+  const isLive=r.status==='running'||r.status==='pending';
+  const err=r.error;
+
+  // stage timeline
+  const tlStages=m.stages;
+  const totalDur=Math.max(1, tlStages.reduce((a,s)=>a+Math.max(1,s.dur),0));
+  const tl=`
+    <div class="tl">
+      ${tlStages.map(s=>`
+        <div class="tl-seg s-${s.st}" data-sel="${s.name}" style="flex:${Math.max(1,s.dur||1)}" title="${esc(s.name)} · ${s.st==='pending'?'等待中':s.st==='running'?'运行中':fmtDur(s.dur)}">
+          ${s.st==='running'?'<span class="dot" style="background:#fff;width:5px;height:5px;animation:pulse 1.6s infinite"></span>':''}
+          ${esc(s.name)}
+        </div>`).join('')}
+    </div>
+    <div class="tl-cap">
+      ${tlStages.map(s=>`<div><span class="dot ${s.st==='running'?'blue':s.st==='succeeded'?'green':s.st==='failed'?'red':''}"></span><span class="nm">${esc(s.name)}</span><span class="dm">${s.st==='pending'?'等待':fmtDur(s.dur)}</span></div>`).join('')}
+    </div>`;
+
+  // step tree
+  let tree='';
+  const selSt=selStepKey||`${tlStages[0]?.name}:0:0`;
+  tlStages.forEach((s,si)=>{
+    tree+=`
+      <div class="tr l1 ${selSt.startsWith(s.name+':')?'open':''}" data-stage="${s.name}" style="margin-top:${si?'4px':''}">
+        <span class="chev">${I.chev}</span><span class="dot ${s.st==='running'?'blue':s.st==='succeeded'?'green':s.st==='failed'?'red':''}"></span>
+        <span class="tname">${esc(s.name)}</span>
+        <span class="chip">${s.mode}</span>
+        <span class="tdur">${s.st==='pending'?'等待':fmtDur(s.dur)}</span>
+      </div>
+      <div class="kids ${selSt.startsWith(s.name+':')?'open':''}">`;
+    s.jobs.forEach((j,ji)=>{
+      tree+=`<div class="tr l2 indent-1" data-stage="${s.name}" style="cursor:default"><span class="dot ${j.st==='running'?'blue':j.st==='succeeded'?'green':j.st==='failed'?'red':''}"></span><span class="tname">${esc(j.name)}</span><span class="tdur">${fmtDur(j.steps.reduce((a,k)=>a+k.dur,0))}</span></div>`;
+      j.steps.forEach((k,ki)=>{
+        const key=`${s.name}:${ji}:${ki}`;
+        const active=key===selSt;
+        tree+=`
+          <div class="tr l3 indent-2 ${active?'sel':''}" data-step="${key}">
+            <span class="dot ${k.st==='running'?'blue':k.st==='succeeded'?'green':k.st==='failed'?'red':''}"></span>
+            <span class="ic">${I.term}</span>
+            <span class="tname">${esc(k.name)}</span>
+            <span class="tdur">${k.st==='pending'?'':fmtDur(k.dur)}</span>
+          </div>`;
+      });
+    });
+    tree+=`</div>`;
+  });
+
+  // selected step
+  let curS=null,curJ=null,curK=null,keyParts=selSt.split(':');
+  tlStages.forEach(s=>s.jobs.forEach(j=>j.steps.forEach(k=>{ const key=`${s.name}:${s.jobs.indexOf(j)}:${j.steps.indexOf(k)}`; if(key===selSt){curS=s;curJ=j;curK=k;} })));
+  if(!curK){ curS=tlStages[0]; if(curS&&curS.jobs[0]){ curJ=curS.jobs[0]; curK=curJ.steps[0]; } }
+  const viewLines=curK?(curK.view||curK.lines):[];
+  const liveNow = isLive && curK && curK.st==='running';
+
+  content.innerHTML=`
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="badge" style="font-size:14px;font-weight:600">${dotHtml(r.status)}${ST[r.status].label}</span>
+          <h1 style="font-size:19px;font-weight:650;letter-spacing:-.01em">${esc(pl.name)} <span style="color:var(--text-3);font-weight:500;font-family:var(--mono);font-size:13px">#${shortId(r.id)}</span></h1>
+        </div>
+        <div style="display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--text-3)">
+          <span>${r.trigger} 触发</span><span>${fmtClock(r.startedAt)}</span>
+          ${r.dur?`<span>耗时 ${fmtDur(r.dur)}</span>`:''}
+        </div>
+        ${err?`<div style="display:flex;align-items:center;gap:8px;margin-top:8px;color:var(--red);font-size:12.5px;background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;padding:6px 10px">${I.warn}<span style="font-family:var(--mono)">${esc(err)}</span></div>`:''}
+      </div>
+      <div style="flex:1"></div>
+      ${isLive?`<button class="btn" data-cancel="${r.id}">${I.stop}取消</button>`:''}
+      ${r.status==='succeeded'||r.status==='failed'||r.status==='cancelled'?`<button class="btn" data-rerun="${r.id}">${I.rr}重跑</button>`:''}
+      <button class="btn" data-exp-log="${r.id}">${I.dl}导出日志</button>
+      <button class="btn btn-icon" data-more="${r.id}">${I.more}</button>
+    </div>
+
+    <div style="margin-bottom:14px">${tl}</div>
+
+    <div style="display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start">
+      <div class="tree">
+        <div class="tree-h">${I.layers} 执行结构 <span class="sub">stage / job / step</span></div>
+        <div class="tree-b">${tree}</div>
+      </div>
+      <div class="log">
+        <div class="log-h">
+          <span class="lt">${esc(curK?curK.name:'')}</span>
+          <span class="lsub">${curK?esc(curK.cmd):''}</span>
+          <span class="sp"></span>
+          <div class="srch">${I.search}<input placeholder="搜索日志" data-log-search></div>
+          <button class="btn btn-icon btn-sm" data-copy-log>${I.copy}</button>
+        </div>
+        <div class="log-b" data-log-body>
+          ${viewLines.map((l,i)=>`<div class="ll" data-i="${i}"><span class="ln">${i+1}</span><span class="ts">+${(i*0.4).toFixed(1)}s</span><span class="txt ${l.t==='e'?'err':''}">${esc(l.s)}</span></div>`).join('')}
+          ${!viewLines.length&&curK?`<div class="ll"><span class="txt" style="color:var(--text-3)">${curK.st==='pending'?'（该步骤尚未开始，等待上游完成）':'（无日志输出）'}</span></div>`:''}
+        </div>
+        <div class="log-foot">
+          <span>${viewLines.length} 行</span>
+          ${liveNow?`<span style="display:flex;align-items:center;gap:6px"><span class="dot blue"></span>实时输出中</span>`:''}
+          <span style="flex:1"></span>
+          <span class="switch ${A.follow?'on':''}" data-follow><i></i>自动滚动</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="card-h">元信息 <span class="sub">配置 / 环境 / 原始 YAML</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 30px;padding:12px 16px">
+        <div class="kv"><div class="k">运行 ID</div><div class="v">${r.id}</div></div>
+        <div class="kv"><div class="k">流水线</div><div class="v">${pl.name} (${pl.id})</div></div>
+        <div class="kv"><div class="k">workdir</div><div class="v">/tmp/go-idp/pipeline/${r.id}</div></div>
+        <div class="kv"><div class="k">timeout</div><div class="v">3600s</div></div>
+        <div class="kv"><div class="k">image</div><div class="v">—</div></div>
+        <div class="kv"><div class="k">触发</div><div class="v plain">${r.trigger}</div></div>
+        <div class="kv" style="border-bottom:0"><div class="k">environment</div><div class="v">PIPELINE_RUNNER=pipeline · CI=true · ${pl.stages.length} stages</div></div>
+        <div class="kv" style="border-bottom:0"><div class="k">YAML</div><div class="v plain"><span style="cursor:pointer;color:var(--text);text-decoration:underline" data-yaml="${r.id}">查看原始定义</span></div></div>
+      </div>
+    </div>`;
+
+  // events
+  content.querySelectorAll('.tr[data-stage]').forEach(el=>el.onclick=()=>{ el.classList.toggle('open'); const kids=el.nextElementSibling; if(kids&&kids.classList.contains('kids')) kids.classList.toggle('open'); });
+  content.querySelectorAll('.tr[data-step]').forEach(el=>el.onclick=()=>{ selStepKey=el.dataset.step; renderRunDetail(id); });
+  content.querySelectorAll('.tl-seg').forEach(el=>el.onclick=()=>{ const st=el.dataset.sel; const s=tlStages.find(x=>x.name===st); const sel=document.querySelector(`.tr[data-stage="${st}"]`); if(sel){sel.classList.add('open'); const kids=sel.nextElementSibling; if(kids) kids.classList.add('open');} selStepKey=st+':0:0'; renderRunDetail(id); });
+  content.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=()=>confirmModal('取消运行 #'+shortId(b.dataset.cancel),'运行将被终止，正在执行的步骤会立即停止。此操作不可撤销。',()=>{cancelRun(b.dataset.cancel); go('/runs');}));
+  content.querySelectorAll('[data-rerun]').forEach(b=>b.onclick=()=>openRerunModal(b.dataset.rerun));
+  content.querySelectorAll('[data-more]').forEach(b=>b.onclick=e=>{e.stopPropagation();openRowMenu(b,null,b.dataset.more);});
+  content.querySelectorAll('[data-yaml]').forEach(el=>el.onclick=()=>openYamlModal(r.pipelineId));
+  content.querySelectorAll('[data-exp-log]').forEach(b=>b.onclick=()=>exportRunLog(r,m));
+  content.querySelectorAll('[data-copy-log]').forEach(b=>b.onclick=()=>{ const txt=viewLines.map(l=>l.s).join('\n'); copyText(txt); toast('日志已复制','ok'); });
+  content.querySelectorAll('[data-follow]').forEach(el=>el.onclick=()=>{ A.follow=!A.follow; renderRunDetail(id); });
+  const srch=content.querySelector('[data-log-search]');
+  if(srch){
+    srch.oninput=()=>{
+      const q=srch.value.toLowerCase(); const body=content.querySelector('[data-log-body]');
+      body.querySelectorAll('.ll').forEach(ll=>{ ll.classList.remove('hit'); const t=ll.querySelector('.txt'); const hit=q&&t.textContent.toLowerCase().includes(q); if(hit){ ll.classList.add('hit'); const old=t.innerHTML; t.innerHTML=old.replace(/<mark>|<\/mark>/g,''); t.innerHTML=t.innerHTML.replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<mark>$1</mark>'); } });
+      const first=body.querySelector('.ll.hit'); if(first) first.scrollIntoView({block:'center'});
+    };
+  }
+  if(A.follow&&liveNow){ const b=content.querySelector('[data-log-body]'); if(b) b.scrollTop=b.scrollHeight; }
+}
+
+/* ---------- queue ---------- */
+function renderQueue(){
+  const active=runs.filter(r=>r.status==='running');
+  const pend=runs.filter(r=>r.status==='pending');
+  content.innerHTML=`
+    <div class="stat-grid">
+      <div class="stat"><div class="lb">运行中</div><div class="vl" style="display:flex;align-items:center;gap:10px">${active.length}<span class="dot blue" style="width:8px;height:8px"></span></div><div class="sb">占用 ${active.length}/2 并发</div></div>
+      <div class="stat"><div class="lb">排队中</div><div class="vl">${pend.length}</div><div class="sb">${pend[0]?'最早排队 '+relTime(pend[pend.length-1].startedAt):'队列为空'}</div></div>
+      <div class="stat"><div class="lb">最大并发</div><div class="vl">2</div><div class="sb">可在设置中调整</div></div>
+      <div class="stat"><div class="lb">执行器</div><div class="vl" style="font-size:18px;line-height:1.4">in-process</div><div class="sb">隔离子进程模式可用</div></div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-h">并发占用 <span class="sub">max-concurrent = 2</span><span style="flex:1"></span><span style="font-size:12px;color:var(--text-2)">${active.length}/2</span></div>
+      <div class="card-b" style="padding:14px 16px"><div class="prog"><i style="width:${active.length/2*100}%"></i></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h">队列 <span class="sub">${active.length+pend.length} 个活跃任务</span></div>
+      <table class="tbl">
+        <thead><tr><th>流水线</th><th>运行 ID</th><th>状态</th><th>入队时间</th><th class="num">排队时长</th><th style="text-align:right">操作</th></tr></thead>
+        <tbody>
+        ${(active.length+pend.length)?[...active,...pend].map(r=>{const p=pipelines.find(x=>x.id===r.pipelineId);const wait=Math.round((Date.now()-r.startedAt)/1000);return `
+          <tr data-go="/runs/${r.id}">
+            <td><div style="font-weight:500">${esc(p?p.name:r.id)}</div></td>
+            <td style="font-family:var(--mono);color:var(--text-2)">#${shortId(r.id)}</td>
+            <td>${pillHtml(r.status)}</td>
+            <td style="color:var(--text-3)">${relTime(r.startedAt)}</td>
+            <td class="num" style="font-variant-numeric:tabular-nums">${fmtDur(wait)}</td>
+            <td data-stop><div class="row-actions"><button class="btn btn-sm" data-cancel="${r.id}">${I.stop}取消</button></div></td>
+          </tr>`}).join('')
+        :`<tr><td colspan="6"><div class="empty"><div class="ei">${I.queue}</div><div class="et">队列空闲</div><div class="es">当前没有运行中或排队的任务</div></div></td></tr>`}
+        </tbody>
+      </table>
+    </div>`;
+  content.querySelectorAll('tr[data-go]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('[data-stop]'))return; go(tr.dataset.go); });
+  content.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=e=>{e.stopPropagation();confirmModal('取消任务 #'+shortId(b.dataset.cancel),'任务将从队列移除或立即终止。',()=>{cancelRun(b.dataset.cancel);renderQueue();});});
+}
+
+/* ---------- settings ---------- */
+function renderSettings(){
+  content.innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h">服务器</div>
+          <div class="card-b" style="padding:12px 16px">
+            <div class="kv"><div class="k">版本</div><div class="v">pipeline v0.1.0</div></div>
+            <div class="kv"><div class="k">运行时长</div><div class="v">3 天 4 小时</div></div>
+            <div class="kv"><div class="k">地址</div><div class="v">http://localhost:8080</div></div>
+            <div class="kv"><div class="k">Base Path</div><div class="v">/</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h">认证 <span class="sub">Basic Auth</span></div>
+          <div class="card-b" style="padding:12px 16px">
+            <div class="kv"><div class="k">用户名</div><div class="v">admin</div></div>
+            <div class="kv" style="border-bottom:0"><div class="k">密码</div><div class="v">••••••••（已设置）</div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h">执行</div>
+          <div class="card-b" style="padding:16px">
+            <div class="field"><label>最大并发数（max-concurrent）</label><input class="inp" value="2"></div>
+            <div class="field"><label>默认任务超时（秒，0 不限制）</label><input class="inp" value="3600"></div>
+            <div class="field"><label>任务执行方式（task-executor）</label>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-primary" style="flex:1">in-process</button>
+                <button class="btn" style="flex:1">subprocess</button>
+              </div>
+            </div>
+            <div class="hint-line" style="margin-top:2px">变更需重启服务生效</div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-h">环境变量透传 <span class="sub">allow-env</span></div>
+          <div class="card-b" style="padding:16px">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+              <span class="env-tag">GITHUB_TOKEN</span><span class="env-tag">GITHUB_REF_NAME</span><span class="env-tag">CI</span>
+            </div>
+            <div style="display:flex;gap:8px"><input class="inp" placeholder="KEY（如 MY_SECRET）" style="flex:1"><button class="btn">添加</button></div>
+            <div class="hint-line" style="margin-top:10px"><input type="checkbox" checked> 允许全部环境变量（allow-all-env）</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h">存储 <span class="sub">workdir</span></div>
+          <div class="card-b" style="padding:12px 16px">
+            <div class="kv"><div class="k">workdir</div><div class="v">/tmp/go-idp/pipeline</div></div>
+            <div class="kv"><div class="k">记录上限</div><div class="v">1000 条（.pipeline_records/）</div></div>
+            <div class="kv" style="border-bottom:0"><div class="k">配置模板</div><div class="v">.pipeline_configs/</div></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-primary" data-save>保存设置</button>
+          <button class="btn btn-danger" data-clear>清空运行历史</button>
+        </div>
+      </div>
+    </div>`;
+  content.querySelector('[data-save]').onclick=()=>toast('设置已保存（重启服务后生效）','ok');
+  content.querySelector('[data-clear]').onclick=()=>confirmModal('清空运行历史','将删除全部运行记录（'.concat(runs.length,' 条），此操作不可恢复。'),()=>{runs.length=0;A.sel.clear();renderSidebar();go('/runs');toast('运行历史已清空','ok');});
+}
+
+/* ---------- modals / drawer / menu ---------- */
+function openModal(html,opt={}){
+  closeOverlays();
+  const ov=document.createElement('div'); ov.className='overlay'; ov.dataset.ov='1';
+  ov.innerHTML=`<div class="modal ${opt.wide?'m-lg':''}">${html}</div>`;
+  document.getElementById('roots').appendChild(ov);
+  ov.onclick=e=>{ if(e.target===ov) closeOverlays(); };
+  return ov;
+}
+function confirmModal(title,msg,onOk){
+  openModal(`
+    <div class="m-h"><div class="mt">${title}</div></div>
+    <div class="m-b">${msg}</div>
+    <div class="m-f"><button class="btn" data-c>取消</button><button class="btn btn-danger" data-ok>确认</button></div>`);
+  const ov=document.querySelector('.overlay');
+  ov.querySelector('[data-c]').onclick=closeOverlays;
+  ov.querySelector('[data-ok]').onclick=()=>{ closeOverlays(); onOk(); };
+}
+function openRunModal(pid,ids){
+  const targets=ids?ids:(pid?[pid]:[]);
+  const label=targets.length===1?pipelines.find(p=>p.id===targets[0]).name:targets.map(id=>pipelines.find(p=>p.id===id).name).join('、');
+  openModal(`
+    <div class="m-h"><div class="mt">${I.play}运行流水线</div></div>
+    <div class="m-b">
+      <div class="field" style="margin-bottom:10px"><label>流水线</label><div style="font-size:14px;font-weight:600;color:var(--text)">${esc(label)}${targets.length>1?`（${targets.length} 条）`:''}</div></div>
+      <div class="field"><label>运行参数（可选）</label><textarea class="inp" rows="3" placeholder="追加环境变量，每行一个，如：&#10;BUILD_ID=10086&#10;GITHUB_REF_NAME=main"></textarea></div>
+      <div class="hint-line">任务将进入队列，并发 2，按序执行</div>
+    </div>
+    <div class="m-f"><button class="btn" data-c>取消</button><button class="btn btn-primary" data-run>${I.play}加入队列</button></div>`);
+  const ov=document.querySelector('.overlay');
+  ov.querySelector('[data-c]').onclick=closeOverlays;
+  ov.querySelector('[data-run]').onclick=()=>{
+    const env=ov.querySelector('textarea').value;
+    targets.forEach((tid,i)=>{
+      runs.unshift({id:'r_'+Math.random().toString(36).slice(2,7), pipelineId:tid, status:'pending', trigger:'手动', startedAt:Date.now()+(i*1000)});
+    });
+    closeOverlays(); renderSidebar(); go('/runs');
+    toast((targets.length===1?label:label+' 等 '+targets.length+' 条')+'已加入队列','ok');
+  };
+}
+function openRerunModal(runId){
+  const r=runs.find(x=>x.id===runId); if(!r)return;
+  openModal(`
+    <div class="m-h"><div class="mt">重跑运行</div></div>
+    <div class="m-b">
+      <div style="font-size:13.5px;color:var(--text);margin-bottom:4px">流水线 <b>${esc(pipelines.find(p=>p.id===r.pipelineId)?.name||'')}</b> · #${shortId(r.id)}</div>
+      <div class="field" style="margin-top:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="rm" value="all" checked> 重跑全部步骤</label>
+        <div style="font-size:12px;color:var(--text-3);padding-left:22px;margin-bottom:8px">以相同 YAML 创建一次全新的运行</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="rm" value="failed"> 仅重跑失败的步骤</label>
+        <div style="font-size:12px;color:var(--text-3);padding-left:22px">跳过已成功的步骤，从失败点继续（v1 规划中）</div>
+      </div>
+    </div>
+    <div class="m-f"><button class="btn" data-c>取消</button><button class="btn btn-primary" data-rerun>${I.rr}开始重跑</button></div>`);
+  const ov=document.querySelector('.overlay');
+  ov.querySelector('[data-c]').onclick=closeOverlays;
+  ov.querySelector('[data-rerun]').onclick=()=>{
+    const mode=ov.querySelector('input[name="rm"]:checked').value;
+    if(mode==='failed'){ toast('「仅重跑失败步骤」将在 v1 提供，当前已按全部重跑处理','err'); }
+    const nr={id:'r_'+Math.random().toString(36).slice(2,7), pipelineId:r.pipelineId, status:'pending', trigger:'重跑', startedAt:Date.now()};
+    runs.unshift(nr);
+    closeOverlays(); renderSidebar(); go('/runs/'+nr.id);
+    toast('已创建重跑 #'+shortId(nr.id),'ok');
+  };
+}
+function openYamlModal(pid){
+  const p=pipelines.find(x=>x.id===pid);
+  if(!p)return;
+  openModal(`<div class="m-h"><div class="mt">定义 · YAML</div><button class="btn btn-icon" style="margin-left:auto" data-c>${I.x}</button></div>
+    <div class="m-b" style="padding-top:10px"><div class="codeblock" style="max-height:60vh">${esc(p.yaml)}</div></div>
+    <div class="m-f"><button class="btn" data-copy>${I.copy}复制 YAML</button><button class="btn btn-primary" data-c>关闭</button></div>`,{wide:true});
+  const ov=document.querySelector('.overlay');
+  ov.querySelectorAll('[data-c]').forEach(b=>b.onclick=closeOverlays);
+  ov.querySelector('[data-copy]').onclick=()=>{copyText(p.yaml);toast('YAML 已复制','ok');};
+}
+function openRowMenu(anchor,plPath,runId){
+  closeOverlays();
+  const menu=document.createElement('div'); menu.className='menu';
+  const r=runId?runs.find(x=>x.id===runId):null;
+  const p=plPath?pipelines.find(x=>plPath.includes(x.id)):null;
+  const items=[];
+  if(plPath){ items.push({t:'运行',ic:I.play,fn:()=>openRunModal(p.id)}); }
+  if(r){
+    if(r.status==='running'||r.status==='pending') items.push({t:'取消运行',ic:I.stop,fn:()=>confirmModal('取消运行 #'+shortId(r.id),'运行将被终止。',()=>{cancelRun(r.id);renderRuns();})});
+    items.push({t:'重跑',ic:I.rr,fn:()=>openRerunModal(r.id)});
+    items.push({t:'导出日志',ic:I.dl,fn:()=>toast('日志导出已开始（模拟）','ok')});
+    items.push({t:'复制运行 ID',ic:I.copy,fn:()=>{copyText(r.id);toast('运行 ID 已复制','ok');}});
+  }
+  if(plPath){ items.push({sep:1}); items.push({t:'编辑',ic:I.cmd,fn:()=>openEditor(p.id)}); items.push({t:'复制流水线',ic:I.copy,fn:()=>openEditor(null,{name:p.name+' (副本)'})}); items.push({sep:1}); items.push({t:'删除流水线',ic:I.trash,danger:1,fn:()=>confirmModal('删除流水线 '+p.name,'流水线定义将被删除，历史运行记录保留。',()=>{pipelines=pipelines.filter(x=>x.id!==p.id);renderSidebar();go('/pipelines');toast('流水线已删除','ok');})}); }
+  menu.innerHTML=items.map(it=>it.sep?'<div class="sep"></div>':`<div class="mi ${it.danger?'danger':''}" data-mi>${it.ic}${it.t}</div>`).join('');
+  document.body.appendChild(menu);
+  const rect=anchor.getBoundingClientRect();
+  const mw=190, mh=menu.offsetHeight||items.length*38;
+  menu.style.left=Math.min(rect.right-mw, window.innerWidth-mw-12)+'px';
+  menu.style.top=(rect.bottom+6>window.innerHeight-mh?rect.top-mh-6:rect.bottom+6)+'px';
+  const bs=[...menu.querySelectorAll('.mi')];
+  bs.forEach((el,i)=>{ const it=items.filter(x=>!x.sep)[i]; el.onclick=()=>{ closeOverlays(); it&&it.fn(); }; });
+  document.body.dataset.menu='1';
+}
+function closeOverlays(){ document.querySelectorAll('[data-ov="1"]').forEach(el=>el.remove()); document.querySelectorAll('.menu').forEach(el=>el.remove()); document.body.dataset.menu=''; closePalette(); }
+
+/* ---------- editor drawer ---------- */
+let editMode=null;
+function openEditor(pid,preset){
+  const p=pid?pipelines.find(x=>x.id===pid):null;
+  editMode={id:pid||null, name:p?p.name:(preset&&preset.name?preset.name:''), desc:p?p.desc:'', enabled:p?p.enabled:true, yaml:p?p.yaml:PLANS.pl_ci.yaml, tab:'yaml'};
+  renderDrawer();
+}
+function renderDrawer(){
+  closeOverlays();
+  const dv=document.createElement('div'); dv.className='drawer'; dv.dataset.ov='1';
+  const e=editMode;
+  const visual=e?parseYamlLite(e.yaml):{stages:[]};
+  dv.innerHTML=`
+    <div class="d-h"><div class="dt">${e.id?'编辑流水线':'新建流水线'}</div>
+      <span class="chip">YAML 优先 · 可视化辅助</span><span style="flex:1"></span>
+      <button class="btn btn-icon" data-c>${I.x}</button>
+    </div>
+    <div class="d-b">
+      <div style="display:flex;gap:12px">
+        <div class="field" style="flex:1"><label>名称</label><input class="inp" id="ed-name" value="${esc(e.name)}" placeholder="如：CI / 发布 / 部署"></div>
+        <div class="field" style="flex:1"><label>描述</label><input class="inp" id="ed-desc" value="${esc(e.desc)}" placeholder="一句话说明"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer"><input type="checkbox" id="ed-en" ${e.enabled?'checked':''}> 启用（允许运行）</label>
+        <div style="flex:1"></div>
+        <div class="tabs2"><button data-t="yaml" class="${e.tab==='yaml'?'on':''}">YAML</button><button data-t="visual" class="${e.tab==='visual'?'on':''}">可视化</button></div>
+      </div>
+      ${e.tab==='yaml'?`
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div class="qlabel" style="margin:0">流水线定义</div>
+          <button class="btn btn-sm" data-fmt>格式化</button>
+        </div>
+        <textarea class="inp" id="ed-yaml" rows="24" spellcheck="false" style="width:100%">${esc(e.yaml)}</textarea>
+        <div class="hint-line" style="margin-top:8px">支持 stage / job / step 三级结构；可切到「可视化」检查结构</div>`:`
+        <div class="qlabel">可视化结构（点击行可折叠）</div>
+        <div style="margin-top:10px">
+          ${visual.stages.map((s,si)=>`
+            <div class="vstage">
+              <div class="vstage-h" data-vs="${si}"><span class="dot" style="background:var(--text)"></span>${esc(s.name)}<span class="chip">${s.mode}</span><span style="flex:1"></span><button class="btn btn-icon btn-sm" data-del-stage="${si}" title="删除阶段">${I.trash}</button></div>
+              ${s.jobs.map(j=>`
+                <div class="vjob">${I.layers}<span style="font-weight:500">${esc(j.name)}</span></div>
+                ${j.steps.map(k=>`<div class="vstep">${I.term}<span>${esc(k.name)}</span><span class="cmd">${esc(k.cmd)}</span></div>`).join('')}
+              `).join('')}
+            </div>`).join('')}
+          <button class="btn" data-add-stage style="width:100%;border-style:dashed">${I.plus}添加 Stage</button>
+        </div>
+        <div class="hint-line" style="margin-top:10px">结构修改通过追加/删除 YAML 片段实现，具体字段在 YAML 页编辑</div>`}
+    </div>
+    <div class="d-f">
+      <div class="hint-line" style="margin-right:auto"><span class="kbd">⌘</span><span class="kbd">S</span> 保存 · <span class="kbd">Esc</span> 关闭</div>
+      <button class="btn" data-c>取消</button>
+      <button class="btn btn-primary" data-save>保存流水线</button>
+    </div>`;
+  document.getElementById('roots').appendChild(dv);
+  dv.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{dv.remove();document.body.dataset.menu='';});
+  const b1=dv.querySelector('[data-t="yaml"]'), b2=dv.querySelector('[data-t="visual"]');
+  if(b1) b1.onclick=()=>{ syncFromInputs(); editMode.tab='yaml'; renderDrawer(); };
+  if(b2) b2.onclick=()=>{ syncFromInputs(); editMode.tab='visual'; renderDrawer(); };
+  const bf=dv.querySelector('[data-fmt]'); if(bf) bf.onclick=()=>{ syncFromInputs(); editMode.yaml=prettyYaml(editMode.yaml); renderDrawer(); };
+  const ba=dv.querySelector('[data-add-stage]'); if(ba) ba.onclick=()=>{ syncFromInputs(); editMode.yaml+='\n  - name: new-stage\n    jobs:\n      - name: job\n        steps:\n          - name: step\n            command: echo "hello"'; renderDrawer(); };
+  dv.querySelectorAll('[data-del-stage]').forEach(b=>b.onclick=()=>{ syncFromInputs(); const st=parseYamlLite(editMode.yaml); const del=b.dataset.delStage; if(st.ranges&&st.ranges[del]){ const r=st.ranges[del]; editMode.yaml=editMode.yaml.split('\n').filter((_,i)=>i<r[0]||i>r[1]).join('\n'); } renderDrawer(); });
+  const ta=dv.querySelector('#ed-yaml');
+  if(ta){ ta.onkeydown=e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault(); saveFromDrawer();} }; }
+  dv.querySelector('[data-save]').onclick=saveFromDrawer;
+  function syncFromInputs(){ const n=dv.querySelector('#ed-name'),d=dv.querySelector('#ed-desc'),en=dv.querySelector('#ed-en'),y=dv.querySelector('#ed-yaml'); if(n)editMode.name=n.value; if(d)editMode.desc=d.value; if(en)editMode.enabled=en.checked; if(y)editMode.yaml=y.value; }
+  function saveFromDrawer(){ syncFromInputs(); if(!editMode.name.trim()){ toast('请填写流水线名称','err'); return; }
+    if(editMode.id){ const p=pipelines.find(x=>x.id===editMode.id); if(p){p.name=editMode.name;p.desc=editMode.desc;p.enabled=editMode.enabled;p.yaml=editMode.yaml;p.stages=parseYamlLite(editMode.yaml).stages;plSync(p);} toast('流水线已更新','ok'); }
+    else { const id='pl_'+Math.random().toString(36).slice(2,6); const st=parseYamlLite(editMode.yaml); pipelines.unshift({id,name:editMode.name,desc:editMode.desc,enabled:editMode.enabled,yaml:editMode.yaml,stages:st.stages,runs:0}); toast('流水线已创建','ok'); go('/pipelines'); }
+    dv.remove(); renderSidebar(); }
+  function plSync(p){ const key=p.id; if(PLANS[key]){ PLANS[key].name=p.name; PLANS[key].desc=p.desc; PLANS[key].yaml=p.yaml; PLANS[key].stages=p.stages; } }
+}
+function parseYamlLite(yaml){
+  const out={stages:[],ranges:[]};
+  const lines=yaml.split('\n');
+  let curS=null,curJ=null,curK=null;
+  const stageStarts=[];
+  lines.forEach((raw,i)=>{
+    const line=raw.replace(/\s+$/,'');
+    const t=line.trim();
+    if(!t||t.startsWith('#'))return;
+    const indent=line.length-line.trimStart().length;
+    let m;
+    if((m=t.match(/^-\s*name:\s*(.*)$/))){
+      const nm=m[1].replace(/^['"]|['"]$/g,'').trim();
+      if(indent===2){ curS={name:nm,mode:'parallel',jobs:[]}; out.stages.push(curS); stageStarts.push(i); curJ=null;curK=null; }
+      else if(indent===4&&curS){ curJ={name:nm,steps:[]}; curS.jobs.push(curJ); curK=null; }
+      else if(indent===6&&curJ){ curK={name:nm,cmd:''}; curJ.steps.push(curK); }
+    } else if((m=t.match(/^(name|run_mode|command|type|description):\s*(.*)$/))){
+      const k=m[1],v=m[2].replace(/^['"]|['"]$/g,'').trim();
+      if(k==='name'){ if(indent===0) out.name=v; else if(indent===2&&curS&&!curJ) curS.name=v; else if(indent===4&&curJ&&!curK) curJ.name=v; else if(indent===6&&curK) curK.name=v; }
+      else if(k==='run_mode'&&indent===2&&curS) curS.mode=v;
+      else if(k==='command'&&indent===6&&curK) curK.cmd=v;
+    }
+  });
+  stageStarts.forEach((s,i)=>{ const e= i<stageStarts.length-1?stageStarts[i+1]-1:lines.length-1; out.ranges.push([s,e]); });
+  return out;
+}
+function prettyYaml(y){ return y.split('\n').map(l=>l.replace(/\s+$/,'')).join('\n').replace(/\n{3,}/g,'\n\n'); }
+
+/* ---------- export / clipboard ---------- */
+function copyText(t){ if(navigator.clipboard) navigator.clipboard.writeText(t).catch(()=>{}); }
+function exportRunLog(r,m){
+  const lines=[];
+  lines.push('Pipeline: '+m.plan.name+' (#'+r.id+')');
+  lines.push('Status: '+r.status+'  Duration: '+(r.dur?fmtDur(r.dur):'—'));
+  lines.push('Exported at: '+new Date().toISOString());
+  lines.push('='.repeat(70));
+  m.stages.forEach(s=>{ lines.push(''); lines.push('## '+s.name+' ['+s.st+']'); s.jobs.forEach(j=>j.steps.forEach(k=>{ lines.push(''); lines.push('$ '+k.name+'  ('+(k.dur?fmtDur(k.dur):'—')+')'); (k.view||k.lines).forEach(l=>lines.push((l.t==='e'?'[err] ':'      ')+l.s)); })); });
+  const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='pipeline-'+r.id+'-logs.txt'; a.click(); URL.revokeObjectURL(a.href);
+  toast('日志已导出','ok');
+}
+function exportCsv(){
+  const rows=[['pipeline','run_id','status','duration_s','trigger','started_at']];
+  runs.forEach(r=>{ rows.push([(pipelines.find(p=>p.id===r.pipelineId)||{}).name||r.id, r.id, r.status, r.dur||'', r.trigger, new Date(r.startedAt).toISOString()]); });
+  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='pipeline-runs.csv'; a.click(); URL.revokeObjectURL(a.href);
+  toast('CSV 已导出','ok');
+}
+
+/* ---------- command palette ---------- */
+function openPalette(q){
+  closePalette();
+  const pv=document.createElement('div'); pv.className='palette'; pv.dataset.pv='1';
+  pv.innerHTML=`<input placeholder="输入命令或搜索…（↑↓ 选择，Enter 执行）"><div class="pl"></div>`;
+  document.body.appendChild(pv);
+  const input=pv.querySelector('input');
+  let sel=0, items=[];
+  function build(){
+    const query=(input.value||'').toLowerCase();
+    items=[];
+    const groups=[];
+    groups.push(['页面',[
+      ['总览','overview','/overview',I.overview],
+      ['流水线','pipelines','/pipelines',I.layers],
+      ['运行','runs','/runs',I.runs],
+      ['队列','queue','/queue',I.queue],
+      ['设置','settings','/settings',I.settings],
+    ]]);
+    groups.push(['操作',[
+      ['新建流水线','new',null,I.plus],
+      ['运行流水线…','runpl',null,I.play],
+      ['查看运行中的任务','running',null,I.clock],
+    ]]);
+    const flat=[];
+    const pl=g=>g.filter(([t])=>!query||t.toLowerCase().includes(query)||(g[0]==='页面'&&('/'+g[0]).includes(query)));
+    groups.forEach(g=>{ const f=pl([g[0],...g[1].filter(x=>!query||x[0].toLowerCase().includes(query)||x[1].includes(query))]); if(f.length>1) flat.push([g[0],f.slice(1)]); });
+    items=flat.flatMap(g=>g[1].map(x=>[g[0],...x]));
+    pv.querySelector('.pl').innerHTML=flat.map(g=>`<div class="pg">${g[0]}</div>`+g[1].map((x,i)=>{ const idx=items.findIndex(it=>it[2]===x[2]&&it[0]===x[0]); return `<div class="pi ${idx===sel?'sel':''}" data-idx="${idx}">${x[4]||I.spark}${x[0]}<span class="hk">${x[2]?'Go':'↵'}</span></div>`; }).join('')).join('');
+    pv.querySelectorAll('.pi').forEach(el=>el.onclick=()=>{ const it=items[+el.dataset.idx]; run(it); });
+  }
+  function run(it){
+    if(!it)return;
+    if(it[2]==='/overview')go('/');
+    else if(it[2]) go(it[2]);
+    else if(it[1]==='new') openEditor(null);
+    else if(it[1]==='runpl') openRunModal(null,[pipelines[0].id]);
+    else if(it[1]==='running') go('/runs');
+    closePalette();
+  }
+  input.addEventListener('input',()=>{sel=0;build();});
+  input.addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(sel+1,items.length-1);build();}
+    else if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(sel-1,0);build();}
+    else if(e.key==='Enter'){e.preventDefault();run(items[sel]);}
+    else if(e.key==='Escape'){closePalette();}
+  });
+  build();
+  setTimeout(()=>input.focus(),30);
+}
+function closePalette(){ document.querySelectorAll('[data-pv="1"]').forEach(el=>el.remove()); }
+
+/* ---------- toast ---------- */
+function toast(msg,type='ok'){
+  const t=document.createElement('div'); t.className='toast '+type;
+  t.innerHTML=(type==='ok'?I.check:I.warn)+msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),320); },2600);
+}
+
+/* ---------- global events ---------- */
+document.addEventListener('click',e=>{
+  if(document.body.dataset.menu==='1' && !e.target.closest('.menu') && !e.target.closest('[data-more]')){
+    document.querySelectorAll('.menu').forEach(el=>el.remove()); document.body.dataset.menu='';
+  }
+});
+document.addEventListener('keydown',e=>{
+  const inInput=e.target.matches('input,textarea');
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault(); openPalette(); return; }
+  if(e.key==='Escape'){ closeOverlays(); return; }
+  if(!inInput && e.key==='/' && !document.querySelector('[data-pv="1"]')){ const s=document.querySelector('#tb-search'); if(s){ e.preventDefault(); s.focus(); } }
+});
+window.addEventListener('hashchange',()=>{ render(); window.scrollTo(0,0); });
+
+/* ---------- init ---------- */
+render();
+setTimeout(()=>{ toast('欢迎使用 Pipeline Web · 产品原型'); },400);
+</script>
+</body>
+</html>

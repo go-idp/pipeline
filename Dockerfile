@@ -1,5 +1,5 @@
 # Builder
-FROM --platform=$BUILDPLATFORM whatwewant/builder-go:v1.22-1 as builder
+FROM --platform=$BUILDPLATFORM whatwewant/builder-go:v1.25-1 as builder
 
 WORKDIR /build
 
@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 \
   -v -o pipeline ./cmd/pipeline
 
 # Server
-FROM whatwewant/zmicro:v1.24
+FROM whatwewant/zmicro:v1.26
 
 LABEL MAINTAINER="Zero<tobewhatwewant@gmail.com>"
 

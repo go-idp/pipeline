@@ -3,6 +3,7 @@ package step
 import (
 	"io"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-zoox/logger"
 )
 
@@ -36,6 +37,9 @@ type Step struct {
 	Service *Service `json:"service" yaml:"service"`
 	//
 	State *State `json:"state" yaml:"state"`
+	//
+	// Observe receives run state change events of this step.
+	Observe event.Observer `json:"-" yaml:"-"`
 	//
 	stdout io.Writer
 	stderr io.Writer

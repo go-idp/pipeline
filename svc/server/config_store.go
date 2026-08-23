@@ -17,8 +17,8 @@ type PipelineConfigTemplate struct {
 	ID          string                 `json:"id"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description,omitempty"`
-	YAML        string                 `json:"yaml"`        // YAML 格式配置
-	Visual      map[string]interface{} `json:"visual"`      // 可视化配置（JSON 格式）
+	YAML        string                 `json:"yaml"`   // YAML 格式配置
+	Visual      map[string]interface{} `json:"visual"` // 可视化配置（JSON 格式）
 	CreatedAt   time.Time              `json:"created_at"`
 	UpdatedAt   time.Time              `json:"updated_at"`
 }
@@ -42,21 +42,21 @@ type ConfigStore interface {
 }
 
 type memoryConfigStore struct {
-	mu       sync.RWMutex
-	configs  map[string]*PipelineConfigTemplate
+	mu      sync.RWMutex
+	configs map[string]*PipelineConfigTemplate
 	workdir string
 }
 
 // NewMemoryConfigStore 创建内存配置存储
 func NewMemoryConfigStore(workdir string) ConfigStore {
 	store := &memoryConfigStore{
-		configs:  make(map[string]*PipelineConfigTemplate),
-		workdir:  workdir,
+		configs: make(map[string]*PipelineConfigTemplate),
+		workdir: workdir,
 	}
-	
+
 	// 从文件加载配置
 	store.loadFromFiles()
-	
+
 	return store
 }
 

@@ -22,6 +22,19 @@ type PipelineRecord struct {
 	Config      map[string]interface{} `json:"config,omitempty"`
 	YAML        string                 `json:"yaml,omitempty"` // 完整的 pipeline YAML 配置
 	Logs        []LogEntry             `json:"logs,omitempty"`
+	// StagesState 是 stage/job/step 的运行时状态快照（key 为层级 id）。
+	StagesState map[string]*StageState `json:"stages_state,omitempty"`
+}
+
+// StageState 是 pipeline / stage / job / step 某一节点的运行时状态。
+type StageState struct {
+	ID        string     `json:"id"`
+	Level     string     `json:"level"` // pipeline | stage | job | step
+	Name      string     `json:"name"`
+	Status    string     `json:"status"` // pending | running | succeeded | failed | cancelled
+	Error     string     `json:"error,omitempty"`
+	StartedAt time.Time  `json:"started_at"`
+	EndedAt   *time.Time `json:"ended_at,omitempty"`
 }
 
 // LogEntry 日志条目
@@ -43,8 +56,10 @@ type Store interface {
 	List(limit int) []*PipelineRecord
 	// UpdateStatus 更新 pipeline 状态
 	UpdateStatus(id, status string, err error)
-	// AddLog 添加日志
-	AddLog(id string, logType, message string)
+	// AddLog 添加日志（可选 timestamp 覆盖默认的当前时间）
+	AddLog(id string, logType, message string, timestamp ...time.Time)
+	// UpsertStageState 更新 stage/job/step 节点的运行时状态
+	UpsertStageState(id string, state *StageState)
 	// Delete 删除 pipeline 记录
 	Delete(id string) bool
 }
@@ -98,11 +113,12 @@ func (s *memoryStore) CreateWithYAML(id, name, yaml string, config map[string]in
 
 func (s *memoryStore) Get(id string) (*PipelineRecord, bool) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	record, ok := s.records[id]
+	s.mu.RUnlock()
+
 	if !ok {
-		// 尝试从文件加载
+		// 尝试从文件加载（注意：不能持有 RLock 时调用 loadFromFile，
+		// 它需要写锁，会造成死锁）
 		return s.loadFromFile(id)
 	}
 
@@ -164,7 +180,7 @@ func (s *memoryStore) UpdateStatus(id, status string, err error) {
 	s.saveToFile(id, record)
 }
 
-func (s *memoryStore) AddLog(id string, logType, message string) {
+func (s *memoryStore) AddLog(id string, logType, message string, timestamp ...time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -173,10 +189,15 @@ func (s *memoryStore) AddLog(id string, logType, message string) {
 		return
 	}
 
+	ts := time.Now()
+	if len(timestamp) > 0 && !timestamp[0].IsZero() {
+		ts = timestamp[0]
+	}
+
 	entry := LogEntry{
 		Type:      logType,
 		Message:   message,
-		Timestamp: time.Now(),
+		Timestamp: ts,
 	}
 
 	record.Logs = append(record.Logs, entry)
@@ -187,6 +208,24 @@ func (s *memoryStore) AddLog(id string, logType, message string) {
 	}
 
 	s.saveToFile(id, record)
+}
+
+// UpsertStageState 更新 stage/job/step 节点的运行时状态（不立即落盘，
+// 由执行结束时的 UpdateStatus 统一持久化，避免高频文件写入）。
+func (s *memoryStore) UpsertStageState(id string, state *StageState) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	record, ok := s.records[id]
+	if !ok {
+		return
+	}
+
+	if record.StagesState == nil {
+		record.StagesState = make(map[string]*StageState)
+	}
+
+	record.StagesState[state.ID] = state
 }
 
 func (s *memoryStore) Delete(id string) bool {

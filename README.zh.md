@@ -75,26 +75,42 @@ pipeline run -c pipeline.yaml
 
 **详细文档**: [Run 命令文档](https://go-idp.github.io/pipeline/zh/commands/run)
 
-### 2. Server 模式
+### 2. Web 管理后台（web 模式）
 
-启动 Pipeline 服务，提供 Web Console 和 REST API：
+启动完整管理后台：嵌入的前端（React + TypeScript）与后端服务一起提供。
+先构建前端（一次即可）：
 
 ```bash
-# 启动服务器
-pipeline server
+cd web/ui && pnpm install && pnpm build
+go build -o pipeline ./cmd/pipeline
+```
+
+```bash
+# 启动管理后台
+pipeline web
 
 # 访问 Web Console
-open http://localhost:8080/console
+open http://localhost:8080
+```
+
+**详细文档**: [web 命令文档](https://go-idp.github.io/pipeline/zh/commands/web)
+
+### 3. Server 模式（仅 API）
+
+启动轻量 API-only 服务（REST API + WebSocket + 队列），不包含嵌入前端：
+
+```bash
+pipeline server
 ```
 
 **详细文档**: [Server 命令文档](https://go-idp.github.io/pipeline/zh/commands/server)
 
-### 3. Client 模式
+### 4. Client 模式
 
 连接到 Pipeline Server 并执行 Pipeline：
 
 ```bash
-pipeline client -c pipeline.yaml -s ws://localhost:8080
+pipeline client -c pipeline.yaml -s ws://localhost:8080/ws
 ```
 
 **详细文档**: [Client 命令文档](https://go-idp.github.io/pipeline/zh/commands/client)
@@ -212,15 +228,20 @@ stages:
 
 ## 🌟 主要功能
 
-### Web Console
+### Web 管理后台（`pipeline web`）
 
-Pipeline Server 提供完整的 Web Console，支持：
+`pipeline web` 命令提供完整的管理后台（Linear 黑白灰极简风格、`⌘K` 命令面板、中英双语）：
 
-- 📊 Pipeline 管理：创建、查看、删除 Pipeline
-- 📈 队列监控：实时查看队列状态和统计信息
-- 📝 日志查看：查看 Pipeline 执行日志和 Pipeline 定义
-- ⚙️ 系统设置：配置队列并发数等系统参数
-- 🔄 自动刷新：自动刷新 Pipeline 状态和队列信息
+- 📊 **总览**：运行趋势、成功率、状态分布
+- 🧬 **流水线**：YAML 优先的定义管理（CodeMirror 编辑器 + 可视化预览）
+- 📈 **运行**：运行列表/详情（阶段时间条、stage/job/step 树、实时日志），取消 / 重跑 / 导出
+- 📊 **队列监控**：实时队列状态与并发占用
+- ⚙️ **系统设置**：并发、超时、执行器、环境变量白名单
+
+`pipeline server` 命令保留为轻量 API-only 服务。
+
+启动时会注入**内置模板**（CI / 发布 / 部署 / 文档 / 夜间基准）与**演示运行记录**
+（幂等，仅当存储为空时），开箱即用——详见 [`web` 命令文档](https://go-idp.github.io/pipeline/zh/commands/web)。
 
 ### 队列系统
 
@@ -263,20 +284,26 @@ pipeline run -c examples/docker.yaml
 
 ```
 pipeline/
-├── cmd/pipeline/          # 命令行入口
+├── cmd/pipeline/          # CLI 入口
 │   └── commands/          # 命令实现
 │       ├── run.go         # run 命令
-│       ├── server.go       # server 命令
-│       └── client.go       # client 命令
+│       ├── server.go      # server 命令（仅 API）
+│       ├── web.go         # web 命令（嵌入前端 + server）
+│       └── client.go      # client 命令
+├── event/                 # 运行状态事件（stage/job/step 观察者）
 ├── svc/                   # 服务层
 │   ├── server/            # Server 实现
 │   │   ├── server.go      # Server 主逻辑
 │   │   ├── queue.go       # 队列系统
 │   │   ├── store.go       # 存储系统
-│   │   └── console.html   # Web Console
+│   │   ├── api_web.go     # 管理后台 API 扩展
+│   │   └── web.go         # SPA 静态服务
 │   └── client/            # Client 实现
+├── web/                   # Web 管理后台
+│   ├── embed.go           # go:embed 嵌入 web/ui/dist
+│   └── ui/                # 前端（pnpm + Vite + React + TypeScript）
 ├── examples/              # 示例配置
-├── docs/                  # 文档
+├── docs/                  # 文档（VitePress）
 └── *.go                   # 核心代码
 ```
 

@@ -1,6 +1,6 @@
 # server Command
 
-The `pipeline server` command starts a Pipeline service that provides Web Console and REST API, supports executing Pipeline via WebSocket, and manages Pipeline execution queues.
+The `pipeline server` command starts a lightweight **API-only** Pipeline service (REST API + WebSocket + execution queue). For the full web management console, use the [`web`](./web.md) command, which embeds the frontend and serves it together with the same backend.
 
 ## Basic Usage
 
@@ -86,21 +86,6 @@ pipeline server --max-concurrent 5
 
 ## Features
 
-### Web Console
-
-Access `http://localhost:8080/console` to open the Web Console, providing:
-
-- **Pipeline Management**: Create, view, delete Pipelines
-- **Search and Filter**: Search Pipelines by name or ID, filter by status and time range
-- **Queue Management**: View queue status, cancel tasks
-- **Pipeline Cancellation**: Support canceling executing or pending Pipelines
-- **History**: View Pipeline execution history
-- **Enhanced Logs**: Search, filter, and export Pipeline execution logs
-- **Real-time Logs**: View Pipeline execution logs with real-time streaming support
-- **Pipeline Definition View**: View complete Pipeline YAML configuration with one-click copy
-- **Dark Mode**: Toggle between light and dark themes
-- **System Settings**: Configure queue concurrency and other settings
-
 ### REST API
 
 The server provides the following REST API endpoints:
@@ -129,7 +114,7 @@ The server provides the following REST API endpoints:
 
 Execute Pipeline via WebSocket connection:
 
-- **Connection Path**: `ws://localhost:8080/` (or `wss://` if using HTTPS)
+- **Connection Path**: `ws://localhost:8080/ws` (default, configurable with `--path`; or `wss://` if using HTTPS)
 - **Authentication**: If username and password are set, provide Basic Auth when connecting
 - **Message Format**: JSON-formatted Action messages
 
@@ -141,8 +126,7 @@ Execute Pipeline via WebSocket connection:
 # Start server (default port 8080)
 pipeline server
 
-# Access Web Console
-open http://localhost:8080/console
+# Legacy /console now redirects to the web console (pipeline web)
 ```
 
 ### Q: Are tasks isolated from the server process?

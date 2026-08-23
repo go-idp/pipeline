@@ -19,6 +19,21 @@ pipeline run [选项]
 
 **详细文档**: [run 命令](./run.md)
 
+### web
+
+启动完整管理后台：嵌入的前端（React + TypeScript）与后端服务一起提供。
+
+```bash
+pipeline web [选项]
+```
+
+**适用场景**：
+- 流水线与运行的图形化管理
+- 实时运行日志与 stage/job/step 三级状态
+- 管理后台的生产部署
+
+**详细文档**: [web 命令](./web.md)
+
 ### server
 
 启动 Pipeline 服务，提供 Web Console 和 REST API。

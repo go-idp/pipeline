@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/go-idp/pipeline/event"
 	"github.com/go-idp/pipeline/job"
 	"github.com/go-idp/pipeline/stage"
 	"github.com/go-idp/pipeline/step"
@@ -33,6 +34,10 @@ type Pipeline struct {
 	//
 	Pre  string `json:"pre" yaml:"pre"`
 	Post string `json:"post" yaml:"post"`
+	//
+	// Observe receives run state change events (pipeline / stage / job / step).
+	// It is optional; the execution engine never blocks on it.
+	Observe event.Observer `json:"-" yaml:"-"`
 	//
 	stdout io.Writer
 	stderr io.Writer
@@ -161,6 +166,8 @@ func (p *Pipeline) prepare(id string) error {
 			Image: p.Image,
 			//
 			Timeout: p.Timeout,
+			//
+			Observe: p.Observe,
 		})
 		if err != nil {
 			return err
@@ -267,5 +274,13 @@ func (p *Pipeline) SetStderr(stderr io.Writer) *Pipeline {
 		stage.SetStderr(stderr)
 	}
 
+	return p
+}
+
+// SetObserve sets the run state observer of the pipeline.
+// The observer is propagated to all stages (and their jobs/steps) when the
+// pipeline is set up by Run.
+func (p *Pipeline) SetObserve(observe event.Observer) *Pipeline {
+	p.Observe = observe
 	return p
 }
