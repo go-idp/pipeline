@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-idp/pipeline"
 	"github.com/go-idp/pipeline/svc/action"
 	"github.com/go-zoox/core-utils/io"
 	"github.com/go-zoox/debug"
@@ -24,6 +23,12 @@ type MountConfig struct {
 	Store Store
 	//
 	Queue Queue
+	//
+	// TaskTimeout 是未显式设置 timeout 的 pipeline 的默认执行超时（秒），0 不限制。
+	TaskTimeout int64
+	//
+	// TaskExecutor 是任务执行方式（in-process | subprocess）。
+	TaskExecutor string
 }
 
 type MountOption func(cfg *MountConfig)
@@ -144,7 +149,7 @@ func Mount(app *zoox.Application, opts ...MountOption) error {
 				// 发送确认消息
 				sendDone()
 			} else {
-				// 如果没有队列，直接执行（向后兼容）
+				// 如果没有队列，直接执行（向后兼容，同样带 panic 恢复/默认超时/执行器）
 				go func() {
 					// 创建 pipeline 记录
 					config := make(map[string]interface{})
@@ -158,12 +163,14 @@ func Mount(app *zoox.Application, opts ...MountOption) error {
 						cfg.Store.UpdateStatus(conn.ID(), "running", nil)
 					}
 
-					pl.SetWorkdir(fmt.Sprintf("%s/%s", cfg.Workdir, conn.ID()))
-					pl.SetEnvironment(cfg.Environment)
+					executor := &taskExecutor{
+						workdir:     cfg.Workdir,
+						environment: cfg.Environment,
+						executor:    cfg.TaskExecutor,
+						timeout:     cfg.TaskTimeout,
+					}
 
-					err := pl.Run(conn.Context(), func(cfg *pipeline.RunConfig) {
-						cfg.ID = conn.ID()
-					})
+					err := executor.Run(conn.ID(), pl, conn.Context(), stdout, stderr)
 
 					if cfg.Store != nil {
 						if err != nil {

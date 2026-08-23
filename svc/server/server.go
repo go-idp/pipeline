@@ -18,7 +18,13 @@ func New(cfg *Config) Server {
 	}
 
 	store := NewMemoryStore(cfg.Workdir, 1000) // 最多保存1000条记录
-	queue := NewQueue(maxConcurrent, store, cfg.Workdir, cfg.Environment)
+
+	executor := cfg.TaskExecutor
+	if executor == "" {
+		executor = TaskExecutorInProcess
+	}
+
+	queue := NewQueue(maxConcurrent, store, cfg.Workdir, cfg.Environment, executor, cfg.TaskTimeout)
 	configStore := NewMemoryConfigStore(cfg.Workdir)
 
 	return &server{

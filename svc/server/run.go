@@ -51,12 +51,19 @@ func (s *server) Run() error {
 		})
 	}
 
+	executor := s.cfg.TaskExecutor
+	if executor == "" {
+		executor = TaskExecutorInProcess
+	}
+
 	err := Mount(app, func(opt *MountConfig) {
 		opt.Path = s.cfg.Path
 		opt.Workdir = s.cfg.Workdir
 		opt.Environment = s.cfg.Environment
 		opt.Store = s.store
 		opt.Queue = s.queue
+		opt.TaskTimeout = s.cfg.TaskTimeout
+		opt.TaskExecutor = executor
 	})
 	if err != nil {
 		return err

@@ -60,6 +60,18 @@ func RegisterServer(app *cli.MultipleProgram) {
 				EnvVars: []string{"MAX_CONCURRENT"},
 				Value:   2,
 			},
+			&cli.IntFlag{
+				Name:    "task-timeout",
+				Usage:   "Specifies the default timeout (seconds) for pipelines without an explicit timeout, 0 disables it",
+				EnvVars: []string{"TASK_TIMEOUT"},
+				Value:   3600,
+			},
+			&cli.StringFlag{
+				Name:    "task-executor",
+				Usage:   "Specifies how tasks are executed: in-process (default) or subprocess (isolated pipeline run process)",
+				EnvVars: []string{"TASK_EXECUTOR"},
+				Value:   "in-process",
+			},
 		},
 		Action: func(ctx *cli.Context) error {
 			environment := map[string]string{}
@@ -94,6 +106,10 @@ func RegisterServer(app *cli.MultipleProgram) {
 				Password: ctx.String("password"),
 				//
 				MaxConcurrent: ctx.Int("max-concurrent"),
+				//
+				TaskTimeout: ctx.Int64("task-timeout"),
+				//
+				TaskExecutor: ctx.String("task-executor"),
 			}
 
 			s := server.New(cfg)

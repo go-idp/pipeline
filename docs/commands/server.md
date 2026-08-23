@@ -24,6 +24,51 @@ Specify the server listening port.
 pipeline server -p 9090
 ```
 
+### `--task-timeout`
+
+Default execution timeout (seconds) for pipelines without an explicit `timeout`,
+preventing tasks from hanging forever and occupying concurrency slots.
+
+- **Type**: integer
+- **Env vars**: `TASK_TIMEOUT`
+- **Default**: `3600`
+- **Note**: only applies to tasks whose YAML has no explicit `timeout`; an
+  explicit timeout always wins. `0` disables the default. Server-only; the
+  `run` mode is unaffected (its default stays 86400s).
+
+**Example**:
+
+```bash
+# tasks without an explicit timeout run for at most 1 hour
+pipeline server --task-timeout 3600
+
+# disable the default timeout
+pipeline server --task-timeout 0
+```
+
+### `--task-executor`
+
+Task execution mode, controlling how isolated tasks are from the server process.
+
+- **Type**: string (`in-process` | `subprocess`)
+- **Env vars**: `TASK_EXECUTOR`
+- **Default**: `in-process`
+- **Note**:
+  - `in-process` (default): tasks run in goroutines inside the server process
+    (legacy behavior).
+  - `subprocess`: each task runs in a separate `pipeline run` subprocess
+    (reusing the running pipeline binary). Task crashes, panics (including
+    native service SDKs) and resource usage stay inside the subprocess, so they
+    cannot affect the server process. On cancellation the whole process group is
+    killed (Linux/macOS) so step children are not orphaned.
+
+**Example**:
+
+```bash
+# process-level isolation per task
+pipeline server --task-executor subprocess
+```
+
 ### `--max-concurrent`
 
 Set the maximum number of concurrently executing Pipelines.
@@ -99,6 +144,16 @@ pipeline server
 # Access Web Console
 open http://localhost:8080/console
 ```
+
+### Q: Are tasks isolated from the server process?
+
+- By default the server runs tasks **in-process** (goroutines). A panicking task
+  is recovered and marked failed instead of crashing the server; however task
+  resource usage still shares the server process.
+- For stronger isolation use `--task-executor subprocess`: tasks run in separate
+  subprocesses, so crashes and resource usage cannot affect the server process.
+  Full sandboxing (containers) can be layered on top with containerized
+  deployment.
 
 ## Deployment Recommendations
 

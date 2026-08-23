@@ -64,10 +64,14 @@ type queue struct {
 	store         Store
 	workdir       string
 	environment   map[string]string
+	executor      string
+	taskTimeout   int64
 }
 
 // NewQueue 创建队列
-func NewQueue(maxConcurrent int, store Store, workdir string, environment map[string]string) Queue {
+// executor 为任务执行方式（in-process | subprocess），taskTimeout 为默认任务
+// 超时秒数（0 不限制），两者均仅在服务端生效，不影响 run 模式。
+func NewQueue(maxConcurrent int, store Store, workdir string, environment map[string]string, executor string, taskTimeout int64) Queue {
 	q := &queue{
 		items:         make(map[string]*QueueItem),
 		pendingItems:  make([]string, 0),
@@ -76,6 +80,8 @@ func NewQueue(maxConcurrent int, store Store, workdir string, environment map[st
 		store:         store,
 		workdir:       workdir,
 		environment:   environment,
+		executor:      executor,
+		taskTimeout:   taskTimeout,
 	}
 
 	// 启动队列处理器
@@ -282,10 +288,16 @@ func (q *queue) execute(item *QueueItem) {
 	item.Cancel = cancel
 
 	// 创建 pipeline 记录（如果还没有创建）
+	// timeout 使用注入默认任务超时后的有效值，保证记录与实际执行一致
+	effectiveTimeout := item.Pipeline.Timeout
+	if effectiveTimeout == 0 && q.taskTimeout > 0 {
+		effectiveTimeout = q.taskTimeout
+	}
+
 	config := make(map[string]interface{})
 	config["name"] = item.Pipeline.Name
 	config["workdir"] = fmt.Sprintf("%s/%s", q.workdir, item.ID)
-	config["timeout"] = item.Pipeline.Timeout
+	config["timeout"] = effectiveTimeout
 	config["image"] = item.Pipeline.Image
 
 	if q.store != nil {
@@ -296,27 +308,22 @@ func (q *queue) execute(item *QueueItem) {
 		q.store.UpdateStatus(item.ID, "running", nil)
 	}
 
-	// 设置 pipeline
-	item.Pipeline.SetWorkdir(fmt.Sprintf("%s/%s", q.workdir, item.ID))
-	item.Pipeline.SetEnvironment(q.environment)
-
-	// 设置输出，将日志记录到 store
-	if q.store != nil {
-		item.Pipeline.SetStdout(&queueWriter{
-			store: q.store,
-			id:    item.ID,
-			typ:   "stdout",
-		})
-		item.Pipeline.SetStderr(&queueWriter{
-			store: q.store,
-			id:    item.ID,
-			typ:   "stderr",
-		})
+	// 执行 pipeline（带 panic 恢复、默认超时、可选子进程隔离）
+	executor := &taskExecutor{
+		workdir:     q.workdir,
+		environment: q.environment,
+		executor:    q.executor,
+		timeout:     q.taskTimeout,
 	}
 
-	// 执行 pipeline
-	err := item.Pipeline.Run(ctx, func(cfg *pipeline.RunConfig) {
-		cfg.ID = item.ID
+	err := executor.Run(item.ID, item.Pipeline, ctx, &queueWriter{
+		store: q.store,
+		id:    item.ID,
+		typ:   "stdout",
+	}, &queueWriter{
+		store: q.store,
+		id:    item.ID,
+		typ:   "stderr",
 	})
 
 	// 更新状态

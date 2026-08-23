@@ -123,6 +123,45 @@ pipeline server --allow-all-env
 pipeline server --max-concurrent 5
 ```
 
+### `--task-timeout`
+
+未显式设置 `timeout` 的 Pipeline 的默认执行超时（秒），防止任务无限挂起占用并发槽。
+
+- **类型**: 整数
+- **环境变量**: `TASK_TIMEOUT`
+- **默认值**: `3600`
+- **说明**: 仅对 YAML 中未显式设置 `timeout` 的任务生效，显式设置优先；`0` 表示不限制。该配置只在 server 模式生效，不影响 `run` 模式（run 默认仍为 86400 秒）。
+
+**示例**:
+
+```bash
+# 未设超时的任务最长执行 1 小时
+pipeline server --task-timeout 3600
+
+# 关闭默认超时
+pipeline server --task-timeout 0
+```
+
+### `--task-executor`
+
+任务执行方式，控制任务与 server 进程的隔离程度。
+
+- **类型**: 字符串（`in-process` | `subprocess`）
+- **环境变量**: `TASK_EXECUTOR`
+- **默认值**: `in-process`
+- **说明**:
+  - `in-process`（默认）：任务在 server 进程内的 goroutine 中执行（与旧行为一致）。
+  - `subprocess`：每个任务通过独立 `pipeline run` 子进程执行（复用当前 pipeline 二进制），
+    任务的崩溃、panic（含原生服务 SDK）与资源消耗都发生在子进程内，不影响 server 进程本体。
+    取消时按进程组终止（Linux/macOS），避免遗留 step 子进程。
+
+**示例**:
+
+```bash
+# 任务级进程隔离
+pipeline server --task-executor subprocess
+```
+
 ## 功能特性
 
 ### Web Console
@@ -251,6 +290,13 @@ A: 使用 `-u` 和 `--password` 选项设置用户名和密码。
 ### Q: 如何查看 Pipeline 执行日志？
 
 A: 在 Web Console 中查看，或通过 REST API `GET /api/v1/pipelines/:id/logs` 获取。
+
+### Q: 任务与 server 进程的隔离？
+
+- server 默认在**进程内**执行任务（goroutine），单个任务 panic 不会拖垮 server（已加 panic 恢复，
+  任务标记为 failed）；但任务资源消耗仍在 server 进程内。
+- 需要更强的隔离时使用 `--task-executor subprocess`：任务在独立子进程中执行，崩溃与资源
+  消耗均不影响 server 进程。彻底隔离（容器沙盒）可在此基础上配合容器化部署实现。
 
 ### Q: 如何取消正在执行的 Pipeline？
 
