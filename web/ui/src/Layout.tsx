@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from './client';
-import { I, usePolling } from './components';
+import { I, usePolling, type IconName } from './components';
 import { useI18n } from './i18n';
 import type { QueueStats, ServerInfo } from './api';
 
@@ -197,7 +197,7 @@ function CommandPalette({ onClose, onGo }: { onClose: () => void; onGo: (p: stri
             onMouseEnter={() => setSel(i)}
             onClick={() => run(it)}
           >
-            {I(it.icon as keyof typeof I, 15)}
+            {I(it.icon as IconName, 15)}
             {it.label}
             <span className="hk">{typeof it.go === 'string' && it.go.startsWith('/') ? 'Go' : '↵'}</span>
           </div>

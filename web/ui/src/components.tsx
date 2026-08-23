@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { cloneElement, createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { RunStatus } from './api';
 
 /* ---------- icons (inline, stroke 1.6) ---------- */
@@ -26,11 +26,16 @@ const S = {
 };
 
 // 简单做法：直接返回已构造的 svg 元素（通过 cloneElement 注入尺寸）
-export function I(name: keyof typeof S, size = 16) {
+// 图标名称（S 的键）
+export type IconName = keyof typeof S;
+
+// 渲染图标：cloneElement 保留原始 svg 的 fill/stroke/strokeWidth 等绘制属性，
+// 只覆盖 width/height 完成缩放（直接重建 svg 会丢失绘制属性导致图标坏掉）。
+export function I(name: IconName, size = 16) {
   const el = S[name];
   return (
     <span style={{ display: 'inline-flex', width: size, height: size, flex: 'none' }}>
-      <svg viewBox="0 0 24 24" width={size} height={size}>{el.props.children}</svg>
+      {cloneElement(el, { width: size, height: size })}
     </span>
   );
 }
