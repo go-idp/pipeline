@@ -1,0 +1,35 @@
+name: examples/step-service-docker-swarm
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+
+stages:
+  - name: deploy
+    jobs:
+      - name: 部署
+        steps:
+          - name: deploy
+            service:
+              type: docker-swarm
+              name: example_task_1234
+              # 私有镜像仓库认证（等价 docker login，swarm 部署时等价 --with-registry-auth）
+              # image_registry: registry.example.com
+              # image_registry_username: ${REGISTRY_USERNAME}
+              # image_registry_password: ${REGISTRY_PASSWORD}
+              config: |
+                version: '3.7'
+                services:
+                  web:
+                    image: nginx:alpine
+                    deploy:
+                      replicas: 2
+                      update_config:
+                        order: start-first
+                      restart_policy:
+                        condition: on-failure
+                    ports:
+                      - target: 80
+                        published: 8080
+                        mode: ingress

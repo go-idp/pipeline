@@ -85,4 +85,7 @@ See example files in the `examples/` directory:
 - `plugin.yml`: Plugin usage example
 - `language.yml`: Language runtime example
 - `step-engine-ssh.yaml`: SSH engine example
-- `step-service-docker-compose.yaml`: Service orchestration example
+- `step-service-docker-compose.yaml`: Docker Compose service deployment example
+- `step-service-docker-swarm.yaml`: Docker Swarm service deployment example
+- `step-service-kubernetes.yaml`: Kubernetes service deployment example
+- `service-deploy.yml`: Full example (build + service deployment)

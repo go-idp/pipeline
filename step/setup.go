@@ -175,6 +175,15 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 			s.Service.Timeout = 120
 		}
 
+		// interpolate ${VAR} references in service scalar fields with the
+		// merged step environment (same as the `config` interpolation)
+		s.Service.Name = expandStepEnv(s.Service.Name, s.Environment)
+		s.Service.ImageRegistry = expandStepEnv(s.Service.ImageRegistry, s.Environment)
+		s.Service.ImageRegistryUsername = expandStepEnv(s.Service.ImageRegistryUsername, s.Environment)
+		s.Service.ImageRegistryPassword = expandStepEnv(s.Service.ImageRegistryPassword, s.Environment)
+		s.Service.Namespace = expandStepEnv(s.Service.Namespace, s.Environment)
+		s.Service.Kubeconfig = expandStepEnv(s.Service.Kubeconfig, s.Environment)
+
 		s.logger.Infof("[workflow][service] use service(type: %s, name: %s) in step(%s)", s.Service.Type, s.Service.Name, s.Name)
 	}
 
@@ -186,4 +195,18 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 	}
 
 	return nil
+}
+
+// expandStepEnv replaces ${KEY} references with values from the environment.
+// Missing keys are left as-is (surfaced later by validation/execution).
+func expandStepEnv(value string, env map[string]string) string {
+	if !strings.Contains(value, "${") {
+		return value
+	}
+
+	for k, v := range env {
+		value = strings.ReplaceAll(value, "${"+k+"}", v)
+	}
+
+	return value
 }

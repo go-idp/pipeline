@@ -9,6 +9,7 @@ Pipeline is a powerful workflow execution engine that supports local execution a
 
 - 🚀 **Multiple Execution Modes**: Support local execution, Server mode, and Client mode
 - 🐳 **Multiple Execution Engines**: Support host, docker, ssh, idp and other execution engines
+- 📦 **Native Service Deployment**: docker-compose / docker-swarm / kubernetes from raw definitions, executed with Go SDKs
 - 📊 **Web Console**: Complete web interface for Pipeline management and monitoring
 - 🔄 **Queue System**: Built-in queue system with concurrency control and task management
 - 📝 **Complete Logging**: Detailed execution logs and error information
@@ -207,7 +208,7 @@ stages:
                 token: ${GITHUB_TOKEN}
 ```
 
-More examples can be found in the [examples](./examples/) directory.
+More examples can be found in the [examples](./examples/) directory (including `step-service-docker-compose.yaml`, `step-service-docker-swarm.yaml`, `step-service-kubernetes.yaml`, and `service-deploy.yml`).
 
 ## 🌟 Key Features
 

@@ -366,4 +366,7 @@ pipeline run -c https://example.com/pipeline.yaml
 - `plugin.yml`: 插件使用示例
 - `language.yml`: 语言运行时示例
 - `step-engine-ssh.yaml`: SSH 引擎示例
-- `step-service-docker-compose.yaml`: 服务编排示例
+- `step-service-docker-compose.yaml`: Docker Compose 服务部署示例
+- `step-service-docker-swarm.yaml`: Docker Swarm 服务部署示例
+- `step-service-kubernetes.yaml`: Kubernetes 服务部署示例
+- `service-deploy.yml`: 完整示例（构建 + 服务部署）

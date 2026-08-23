@@ -1,0 +1,57 @@
+name: examples/step-service-kubernetes
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+
+stages:
+  - name: deploy
+    jobs:
+      - name: 部署
+        steps:
+          - name: deploy
+            service:
+              type: kubernetes
+              # 可选：kubeconfig 路径（默认 $KUBECONFIG / ~/.kube/config / in-cluster）
+              # kubeconfig: /root/.kube/config
+              # 可选：默认命名空间（缺省取 kubeconfig 上下文或 default）
+              # namespace: demo
+              config: |
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: demo
+                ---
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: web
+                  namespace: demo
+                spec:
+                  replicas: 2
+                  selector:
+                    matchLabels:
+                      app: web
+                  template:
+                    metadata:
+                      labels:
+                        app: web
+                    spec:
+                      containers:
+                        - name: web
+                          image: nginx:alpine
+                          ports:
+                            - containerPort: 80
+                ---
+                apiVersion: v1
+                kind: Service
+                metadata:
+                  name: web
+                  namespace: demo
+                spec:
+                  selector:
+                    app: web
+                  ports:
+                    - port: 80
+                      targetPort: 80

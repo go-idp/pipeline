@@ -9,6 +9,7 @@ Pipeline 是一个强大的工作流执行引擎，支持本地执行和服务�
 
 - 🚀 **多种执行模式**: 支持本地运行、Server 模式和 Client 模式
 - 🐳 **多执行引擎**: 支持 host、docker、ssh、idp 等多种执行引擎
+- 📦 **原生服务部署**: docker-compose / docker-swarm / kubernetes 直接以定义文件输入，Go SDK 原生执行
 - 📊 **Web Console**: 提供完整的 Web 界面，支持 Pipeline 管理和监控
 - 🔄 **队列系统**: 内置队列系统，支持并发控制和任务管理
 - 📝 **完整日志**: 详细的执行日志和错误信息
@@ -207,7 +208,7 @@ stages:
                 token: ${GITHUB_TOKEN}
 ```
 
-更多示例请查看 [examples](./examples/) 目录。
+更多示例请查看 [examples](./examples/) 目录（含 `step-service-docker-compose.yaml`、`step-service-docker-swarm.yaml`、`step-service-kubernetes.yaml`、`service-deploy.yml` 等服务部署案例）。
 
 ## 🌟 主要功能
 

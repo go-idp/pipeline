@@ -9,6 +9,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,7 +102,7 @@ func (s *Step) kubeClientConfig() (*rest.Config, string, error) {
 
 // k8sApply parses the multi-document manifest and server-side applies every
 // object, returning the list of applied resources.
-func (s *Step) k8sApply(ctx context.Context, dynClient dynamic.Interface, mapper *restmapper.DeferredDiscoveryRESTMapper, namespace string) ([]appliedResource, error) {
+func (s *Step) k8sApply(ctx context.Context, dynClient dynamic.Interface, mapper meta.RESTMapper, namespace string) ([]appliedResource, error) {
 	objects, err := decodeK8sManifests(s.Service.Config)
 	if err != nil {
 		return nil, err
@@ -117,7 +118,9 @@ func (s *Step) k8sApply(ctx context.Context, dynClient dynamic.Interface, mapper
 		}
 
 		ns := u.GetNamespace()
-		if ns == "" {
+		// only default the namespace for namespaced resources;
+		// cluster-scoped resources (Namespace, ClusterRole, CRD, ...) must stay empty
+		if ns == "" && mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 			ns = namespace
 		}
 

@@ -63,3 +63,61 @@ func TestStepSetup_ServiceValidTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestStepSetup_ServiceEnvInterpolation(t *testing.T) {
+	s := &Step{
+		Name: "s",
+		Environment: map[string]string{
+			"EUNOMIA_TASK_ID":   "10086",
+			"REGISTRY_USERNAME": "deploy-user",
+			"REGISTRY_PASSWORD": "s3cret",
+			"K8S_NAMESPACE":     "demo",
+		},
+		Service: &Service{
+			Type:                  "docker-compose",
+			Name:                  "task-${EUNOMIA_TASK_ID}",
+			Config:                "services: {}",
+			ImageRegistry:         "https://registry.example.com/",
+			ImageRegistryUsername: "${REGISTRY_USERNAME}",
+			ImageRegistryPassword: "${REGISTRY_PASSWORD}",
+		},
+	}
+
+	if err := s.Setup("0"); err != nil {
+		t.Fatalf("Setup() error: %v", err)
+	}
+
+	if s.Service.Name != "task-10086" {
+		t.Errorf("name interpolation mismatch: %q", s.Service.Name)
+	}
+	if s.Service.ImageRegistryUsername != "deploy-user" {
+		t.Errorf("registry username interpolation mismatch: %q", s.Service.ImageRegistryUsername)
+	}
+	if s.Service.ImageRegistryPassword != "s3cret" {
+		t.Errorf("registry password interpolation mismatch: %q", s.Service.ImageRegistryPassword)
+	}
+	// non-${VAR} values are untouched
+	if s.Service.ImageRegistry != "https://registry.example.com/" {
+		t.Errorf("registry url should not be modified: %q", s.Service.ImageRegistry)
+	}
+}
+
+func TestStepSetup_ServiceEnvInterpolationMissingVar(t *testing.T) {
+	s := &Step{
+		Name: "s",
+		Service: &Service{
+			Type:   "docker-compose",
+			Name:   "task-${UNSET_VAR}",
+			Config: "services: {}",
+		},
+	}
+
+	if err := s.Setup("0"); err != nil {
+		t.Fatalf("Setup() error: %v", err)
+	}
+
+	// missing vars are left as-is
+	if s.Service.Name != "task-${UNSET_VAR}" {
+		t.Errorf("missing var should be left as-is, got %q", s.Service.Name)
+	}
+}

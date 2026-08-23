@@ -1,0 +1,54 @@
+name: examples/service-deploy
+
+# 完整示例：构建镜像 + 原生服务部署（docker-compose）
+# 运行：pipeline run -c examples/service-deploy.yml
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+  EUNOMIA_REGISTRY: registry.example.com
+
+stages:
+  - name: build
+    jobs:
+      - name: build image
+        steps:
+          - name: build
+            image: docker:latest
+            command: |
+              echo "[$(date)] building image ..."
+              docker build -t ${EUNOMIA_REGISTRY}/myapp:build_${EUNOMIA_BUILD_ID} .
+              echo "[$(date)] image built: ${EUNOMIA_REGISTRY}/myapp:build_${EUNOMIA_BUILD_ID}"
+
+  - name: deploy
+    jobs:
+      - name: 部署服务
+        steps:
+          - name: 部署前检查
+            command: |
+              echo "[$(date)] pre-deploy check: workdir is $PWD"
+              ls -la
+
+          - name: 部署
+            service:
+              type: docker-compose
+              name: myapp_task_${EUNOMIA_BUILD_ID}
+              image_registry: ${EUNOMIA_REGISTRY}
+              image_registry_username: ${REGISTRY_USERNAME}
+              image_registry_password: ${REGISTRY_PASSWORD}
+              config: |
+                version: '3.7'
+                services:
+                  web:
+                    image: ${EUNOMIA_REGISTRY}/myapp:build_${EUNOMIA_BUILD_ID}
+                    ports:
+                      - "8080:80"
+                    environment:
+                      BUILD_TIMESTAMP: $EUNOMIA_BUILD_TIMESTAMP
+                    restart: unless-stopped
+
+          - name: 部署后检查
+            command: |
+              echo "[$(date)] post-deploy check: container status"
+              docker compose --project-name myapp_task_${EUNOMIA_BUILD_ID} ps

@@ -138,11 +138,23 @@ func (s *Step) swarmReadyState(ctx context.Context, dockerClient *client.Client)
 		return false, nil, err
 	}
 
+	ready, notReady := swarmServicesReady(services, s.Service.Name)
+	return ready, notReady, nil
+}
+
+// swarmServicesReady reports whether all stack services have their desired
+// replicas running, plus descriptions of services that are not ready yet.
+//
+// A service is ready when its desired replicas are non-zero and its running
+// tasks are at least the desired count. Global-mode services require at least
+// one running task. Services with a nil ServiceStatus (still being scheduled)
+// count as not ready.
+func swarmServicesReady(services []swarmtypes.Service, stackName string) (bool, []string) {
 	ready := true
 	var notReady []string
 
 	for _, svc := range services {
-		name := strings.TrimPrefix(svc.Spec.Name, s.Service.Name+"_")
+		name := strings.TrimPrefix(svc.Spec.Name, stackName+"_")
 		var desired uint64
 		var running uint64
 
@@ -163,7 +175,7 @@ func (s *Step) swarmReadyState(ctx context.Context, dockerClient *client.Client)
 		}
 	}
 
-	return ready, notReady, nil
+	return ready, notReady
 }
 
 // collectSwarmDiagnostics prints the stack services and failed tasks, mirroring
