@@ -577,6 +577,14 @@ func (s *server) Run() error {
 	// 管理后台扩展 API（runs / rerun / configs / stages）
 	s.MountWebAPI(api)
 
+	// 服务信息（SPA 场景下 / 被前端页面占用，版本信息走 API 获取）
+	api.Get("/version", func(ctx *zoox.Context) {
+		ctx.JSON(200, map[string]string{
+			"version":    pipeline.Version,
+			"running_at": app.Runtime().RunningAt().Format("YYYY-MM-DD HH:mm:ss"),
+		})
+	})
+
 	// 嵌入的前端 SPA（仅 pipeline web 命令）
 	if s.cfg.WebFS != nil {
 		if err := MountWeb(app, s.cfg.WebFS, s.cfg.Path); err != nil {

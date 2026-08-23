@@ -63,8 +63,8 @@ export const api = {
   getSettings: () => request<Settings>(`/settings`),
   saveSettings: (settings: Record<string, unknown>) =>
     request<{ message: string }>(`/settings`, { method: 'POST', body: JSON.stringify(settings) }),
-  // 根路径版本信息（不在 /api/v1 前缀下）
-  serverInfo: () => fetch(`/`).then((r) => r.json() as Promise<ServerInfo>),
+  // 服务版本信息（web 模式下 / 为前端页面，版本通过 API 获取）
+  serverInfo: () => request<ServerInfo>(`/version`),
 };
 
 // 状态 -> 展示
