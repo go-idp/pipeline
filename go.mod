@@ -285,3 +285,5 @@ replace github.com/docker/docker => github.com/docker/docker v27.3.1+incompatibl
 replace github.com/docker/go-connections => github.com/docker/go-connections v0.5.0
 
 replace github.com/containerd/errdefs => github.com/containerd/errdefs v0.1.0
+
+replace github.com/fsnotify/fsevents => ./third_party/fsevents
