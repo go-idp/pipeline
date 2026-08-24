@@ -9,6 +9,7 @@ import (
 
 	"github.com/docker/cli/cli/command"
 	cliconfigtypes "github.com/docker/cli/cli/config/types"
+	cliflags "github.com/docker/cli/cli/flags"
 	"github.com/docker/docker/client"
 )
 
@@ -52,11 +53,22 @@ func newDockerClient() (*client.Client, error) {
 // newDockerCli builds a docker CLI object backed by the API client, which is
 // required by both the compose SDK and the swarm stack deploy SDK.
 func newDockerCli(dockerClient *client.Client, stdout, stderr io.Writer) (command.Cli, error) {
-	return command.NewDockerCli(
+	dockerCli, err := command.NewDockerCli(
 		command.WithAPIClient(dockerClient),
 		command.WithOutputStream(stdout),
 		command.WithErrorStream(stderr),
 	)
+	if err != nil {
+		return nil, err
+	}
+	// Initialize is required: without it the CLI context is left unset
+	// (currentContext == "" and contextStore == nil), so any call to
+	// dockerCli.Client() fails with "unable to resolve docker endpoint: no
+	// context store initialized" and os.Exit(1)s the whole process.
+	if err := dockerCli.Initialize(&cliflags.ClientOptions{}); err != nil {
+		return nil, err
+	}
+	return dockerCli, nil
 }
 
 // setupRegistryAuth injects the service registry credentials into the docker
