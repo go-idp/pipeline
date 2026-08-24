@@ -134,3 +134,29 @@ Make sure that host can reach docker / kubectl.
 v1.8.0 removed the `service.version: v1` shell generation. Migrate old configs to
 the format above; **the pipeline CLI on agents must be upgraded to v1.8.0+**,
 otherwise the new config fails validation.
+
+### docker-swarm / docker-compose deploy fails with "no context store initialized"
+
+**Symptom**: a `docker-swarm` / `docker-compose` deploy step fails with:
+
+```
+[service] docker-swarm: deploy stack "eunomia-task-154" (timeout: 120s)
+[service] registry auth configured for registry.ys.zcorky.com
+Failed to initialize: unable to resolve docker endpoint: no context store initialized
+failed to run command: exit status 1
+```
+
+**Cause**: pipeline ≤ v1.8.4 created the docker CLI SDK without calling
+`Initialize()`, so the CLI context store was never set up; `dockerCli.Client()`
+failed to resolve the docker endpoint and called `os.Exit(1)`, killing the whole
+process. The error is unrelated to the docker daemon, `DOCKER_HOST` or
+`DOCKER_CONTEXT` — it happens on any host.
+
+**Fix**: upgrade the pipeline CLI on agents to **v1.8.5+** (`newDockerCli` now
+calls `Initialize`, resolving the current context as `default`). No config change
+is needed.
+
+> After upgrading, if the error changes to `docker context "<name>" does not
+> exist`, the runner's `DOCKER_CONTEXT` points to a nonexistent context — that is
+> an environment issue: create the context with `docker context create`, or unset
+> the `DOCKER_CONTEXT` environment variable.

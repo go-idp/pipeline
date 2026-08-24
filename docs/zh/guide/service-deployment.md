@@ -126,3 +126,26 @@ SDK 调用运行在 **pipeline 进程所在主机**（即执行 `pipeline run` �
 
 v1.8.0 移除了 `service.version: v1` 的 shell 生成方式。旧格式的配置需要按本文档迁移；
 **agent 上的 pipeline CLI 需要升级到 v1.8.0+**，否则新配置会校验失败。
+
+### docker-swarm / docker-compose 部署报 "no context store initialized"
+
+**现象**：`docker-swarm` / `docker-compose` 部署步骤失败，日志如下：
+
+```
+[service] docker-swarm: deploy stack "eunomia-task-154" (timeout: 120s)
+[service] registry auth configured for registry.ys.zcorky.com
+Failed to initialize: unable to resolve docker endpoint: no context store initialized
+failed to run command: exit status 1
+```
+
+**原因**：pipeline ≤ v1.8.4 创建 docker CLI SDK 时漏掉了 `Initialize()` 调用，CLI 的
+context store 未初始化，`dockerCli.Client()` 解析 docker endpoint 失败后直接
+`os.Exit(1)` 终止整个进程。该错误与 docker daemon、`DOCKER_HOST`、`DOCKER_CONTEXT`
+均无关，在任何主机上都会发生。
+
+**修复**：升级 agent 上的 pipeline CLI 到 **v1.8.5+**（`newDockerCli` 补上
+`Initialize` 调用，将当前 context 解析为 `default`），无需修改配置。
+
+> 升级后若仍报错且信息变为 `docker context "<name>" does not exist`，说明运行环境的
+> `DOCKER_CONTEXT` 指向了不存在的 context——这是环境问题：用 `docker context create`
+> 创建该 context，或取消 `DOCKER_CONTEXT` 环境变量。
