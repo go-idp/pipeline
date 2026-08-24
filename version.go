@@ -1,4 +1,4 @@
 package pipeline
 
 // Version is the version of this package.
-var Version = "1.8.4"
+var Version = "1.8.5"
