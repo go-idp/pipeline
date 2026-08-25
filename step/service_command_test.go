@@ -79,8 +79,11 @@ func TestBuildServiceCommandSwarm(t *testing.T) {
 	}
 
 	for _, want := range []string{
+		"docker stack deploy --detach=false --prune --with-registry-auth -c",
 		"docker stack deploy --prune --with-registry-auth -c",
 		"'my-stack'",
+		"docker version --format '{{.Server.Version}}'",
+		"17.05",
 		"PIPELINE_STACK='my-stack'",
 		"com.docker.stack.namespace=$PIPELINE_STACK",
 		"date +%s",
@@ -174,6 +177,30 @@ func TestSetup_LocalServiceStaysSdk(t *testing.T) {
 	// a local (engine empty / host) service runs the Go SDK, so no command is set
 	if s.Command != "" {
 		t.Errorf("local service should not set a command (SDK path), got %q", s.Command)
+	}
+}
+
+func TestEngineVersionAtLeast(t *testing.T) {
+	cases := []struct {
+		version      string
+		major, minor int
+		expect       bool
+	}{
+		{"27.3.1", 17, 5, true},
+		{"24.0.7", 17, 5, true},
+		{"18.09.7", 17, 5, true},
+		{"17.05.0-ce", 17, 5, true},
+		{"17.06.2", 17, 5, true},
+		{"17.04.0", 17, 5, false},
+		{"16.04.0", 17, 5, false},
+		{"1.13.1", 17, 5, false},
+		{"", 17, 5, false},
+		{"abc", 17, 5, false},
+	}
+	for _, c := range cases {
+		if got := engineVersionAtLeast(c.version, c.major, c.minor); got != c.expect {
+			t.Errorf("engineVersionAtLeast(%q, %d, %d) = %v, want %v", c.version, c.major, c.minor, got, c.expect)
+		}
 	}
 }
 

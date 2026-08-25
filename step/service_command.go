@@ -95,9 +95,29 @@ func (s *Step) buildSwarmCommand() string {
 	return strings.Join(append(s.head(),
 		writeServiceConfig(s.Service.Config),
 		registryLogin(),
-		fmt.Sprintf(`docker stack deploy --prune --with-registry-auth -c "$%s" '%s'`, serviceConfigFile, s.Service.Name),
-		swarmReadiness(s.Service.Name, s.Service.Timeout),
+		swarmDeploy(s.Service.Name, s.Service.Timeout),
 	), "\n")
+}
+
+// swarmDeploy deploys the swarm stack, preferring `docker stack deploy
+// --detach=false` (which waits for the stack services to converge itself) when
+// the executing host's docker supports it (engine >= 17.05). Older engines fall
+// back to a detached deploy plus a replica convergence poll. The engine version
+// is read from `docker version --format '{{.Server.Version}}'` on that host.
+func swarmDeploy(stack string, timeout int64) string {
+	body := `PIPELINE_SWARM_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "0.0.0")
+if awk -v v="$PIPELINE_SWARM_VERSION" 'BEGIN { split(v,a,"."); exit !(a[1]>17 || (a[1]==17 && a[2]>=5)) }'; then
+  echo "docker-swarm: deploy stack '__STACK__' with --detach=false (version $PIPELINE_SWARM_VERSION)"
+  docker stack deploy --detach=false --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" '__STACK__'
+else
+  echo "docker-swarm: version $PIPELINE_SWARM_VERSION < 17.05, fall back to detached deploy + readiness poll"
+  docker stack deploy --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" '__STACK__'
+__READINESS__
+fi`
+	return strings.NewReplacer(
+		"__STACK__", stack,
+		"__READINESS__", swarmReadiness(stack, timeout),
+	).Replace(body)
 }
 
 // swarmReadiness polls the stack services' replica convergence, mirroring the

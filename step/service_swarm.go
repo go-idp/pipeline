@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,13 +55,24 @@ func (s *Step) runServiceSwarm(ctx context.Context) error {
 		return fmt.Errorf("failed to write compose file: %s", err)
 	}
 
+	// Use `--detach=false` (the CLI SDK waits for convergence itself) when the
+	// daemon supports it (engine >= 17.05); otherwise deploy detached and let the
+	// pipeline poll replica convergence.
+	detach := true
+	if s.swarmServerSupportsDetachFalse(ctx, dockerClient) {
+		detach = false
+		s.serviceLogf("docker-swarm: daemon >= 17.05, deploy with --detach=false (CLI waits for convergence)")
+	} else {
+		s.serviceLogf("docker-swarm: daemon < 17.05, deploy detached + readiness poll")
+	}
+
 	opts := options.Deploy{
 		Composefiles:     []string{composeFile},
 		Namespace:        s.Service.Name,
 		ResolveImage:     swarm.ResolveImageAlways,
 		SendRegistryAuth: true,
 		Prune:            true,
-		Detach:           true,
+		Detach:           detach,
 		Quiet:            true,
 	}
 
@@ -71,7 +83,7 @@ func (s *Step) runServiceSwarm(ctx context.Context) error {
 	flags.Bool("quiet", true, "")
 	flags.String("resolve-image", swarm.ResolveImageAlways, "")
 	// mark detach as explicitly set to suppress the CLI's detach warning
-	_ = flags.Set("detach", "true")
+	_ = flags.Set("detach", fmt.Sprintf("%t", detach))
 
 	cfg, err := loader.LoadComposefile(dockerCli, opts)
 	if err != nil {
@@ -83,13 +95,47 @@ func (s *Step) runServiceSwarm(ctx context.Context) error {
 		return fmt.Errorf("docker stack deploy failed: %s", err)
 	}
 
-	if err := s.waitSwarmReady(ctx, dockerClient); err != nil {
-		s.collectSwarmDiagnostics(ctx, dockerClient)
-		return err
+	// A detached deploy does not wait for convergence; poll it. When the CLI SDK
+	// already waited (--detach=false), the stack is ready after RunDeploy returns.
+	if detach {
+		if err := s.waitSwarmReady(ctx, dockerClient); err != nil {
+			s.collectSwarmDiagnostics(ctx, dockerClient)
+			return err
+		}
 	}
 
 	s.serviceLogf("docker-swarm: stack %q is ready", s.Service.Name)
 	return nil
+}
+
+// swarmServerSupportsDetachFalse reports whether the daemon supports
+// `docker stack deploy --detach=false` (engine >= 17.05), so the CLI SDK can
+// wait for convergence by itself instead of the pipeline polling.
+func (s *Step) swarmServerSupportsDetachFalse(ctx context.Context, dockerClient *client.Client) bool {
+	v, err := dockerClient.ServerVersion(ctx)
+	if err != nil {
+		s.serviceLogf("docker-swarm: failed to get server version, fall back to detached deploy + poll: %s", err)
+		return false
+	}
+	return engineVersionAtLeast(v.Version, 17, 5)
+}
+
+// engineVersionAtLeast reports whether a docker version string ("27.3.1") is at
+// or above the given major.minor (e.g. 17.5).
+func engineVersionAtLeast(version string, major, minor int) bool {
+	parts := strings.SplitN(version, ".", 3)
+	if len(parts) < 2 {
+		return false
+	}
+	vmaj, err1 := strconv.Atoi(parts[0])
+	vmin, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	if vmaj != major {
+		return vmaj > major
+	}
+	return vmin >= minor
 }
 
 // stackFilter returns the docker filters selecting resources of this stack.

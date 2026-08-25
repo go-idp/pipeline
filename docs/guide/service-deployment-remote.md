@@ -196,8 +196,14 @@ What happens on the remote host:
 # ... write $PIPELINE_SERVICE_FILE ...
 echo "$PIPELINE_SERVICE_REGISTRY_PASS" | docker login -u "$PIPELINE_SERVICE_REGISTRY_USER" \
   --password-stdin "$PIPELINE_SERVICE_REGISTRY"
-docker stack deploy --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
-# then poll `docker service ls` until every service's running >= desired, up to 180s
+# prefer --detach=false (waits for convergence) when the engine is >= 17.05
+PIPELINE_SWARM_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "0.0.0")
+if ... version >= 17.05 ...; then
+  docker stack deploy --detach=false --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
+else
+  docker stack deploy --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
+  # then poll `docker service ls` until every service's running >= desired, up to 180s
+fi
 ```
 
 - Registry credentials are forwarded as **env vars** (`PIPELINE_SERVICE_REGISTRY*`)
@@ -345,7 +351,7 @@ instead of any of these commands.
 | type | command run on the remote host | readiness |
 |------|--------------------------------|-----------|
 | `docker-compose` | `docker compose -f <file> -p <name> up -d --wait --wait-timeout <timeout>` | `compose up --wait` (running/healthy) |
-| `docker-swarm` | `docker stack deploy --prune --with-registry-auth -c <file> <name>` | poll `docker service ls` replica convergence |
+| `docker-swarm` | `docker stack deploy --prune --with-registry-auth -c <file> <name>` (`--detach=false` when the engine is ≥ 17.05) | `--detach=false` waits for convergence; older engines poll `docker service ls` replica convergence |
 | `kubernetes` | `kubectl apply -f <file>` (+ optional `export KUBECONFIG=<path>`) | `kubectl wait --for=condition=Available deployment --all` |
 
 ## Troubleshooting

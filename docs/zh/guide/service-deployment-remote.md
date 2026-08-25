@@ -184,8 +184,14 @@ stages:
 # ... 写入 $PIPELINE_SERVICE_FILE ...
 echo "$PIPELINE_SERVICE_REGISTRY_PASS" | docker login -u "$PIPELINE_SERVICE_REGISTRY_USER" \
   --password-stdin "$PIPELINE_SERVICE_REGISTRY"
-docker stack deploy --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
-# 然后轮询 `docker service ls`，直到每个服务的 running >= desired，上限 180 秒
+# 引擎版本 >= 17.05 时优先 --detach=false（自身等待收敛）
+PIPELINE_SWARM_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "0.0.0")
+if ... 版本 >= 17.05 ...; then
+  docker stack deploy --detach=false --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
+else
+  docker stack deploy --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
+  # 然后轮询 `docker service ls`，直到每个服务的 running >= desired，上限 180 秒
+fi
 ```
 
 - 仓库凭据以**环境变量**（`PIPELINE_SERVICE_REGISTRY*`）转发，配合 `docker login --password-stdin`
@@ -328,7 +334,7 @@ stages:
 | type | 远端主机执行的命令 | 就绪检查 |
 |------|--------------------|----------|
 | `docker-compose` | `docker compose -f <file> -p <name> up -d --wait --wait-timeout <timeout>` | `compose up --wait`（running/healthy） |
-| `docker-swarm` | `docker stack deploy --prune --with-registry-auth -c <file> <name>` | 轮询 `docker service ls` 副本收敛 |
+| `docker-swarm` | `docker stack deploy --prune --with-registry-auth -c <file> <name>`（引擎 ≥ 17.05 时加 `--detach=false`） | `--detach=false` 由 CLI 等待收敛；旧版回退为轮询 `docker service ls` 副本收敛 |
 | `kubernetes` | `kubectl apply -f <file>`（可选 `export KUBECONFIG=<path>`） | `kubectl wait --for=condition=Available deployment --all` |
 
 ## 故障排查
