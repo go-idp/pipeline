@@ -59,8 +59,10 @@ func (s *Step) Run(ctx context.Context, opts ...RunOption) error {
 	s.State.Status = "running"
 	s.emit("running", nil, nil)
 
-	// Native service deploy (Go SDK), no shell generation
-	if s.Service != nil {
+	// Native service deploy (Go SDK) only for the local engine. A remote engine
+	// (ssh / idp / docker) cannot be driven by the Go SDK, so its service step is
+	// executed as a generated command routed through the engine below.
+	if s.Service != nil && !s.serviceUsesCommand() {
 		if err := s.runService(ctx); err != nil {
 			s.State.Status = "failed"
 			s.State.Error = err.Error()

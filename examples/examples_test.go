@@ -23,8 +23,12 @@ func TestExampleConfigsParse(t *testing.T) {
 		"step-engine.yaml",
 		"step-engine-ssh.yaml",
 		"step-service-docker-compose.yaml",
+		"step-service-docker-compose-ssh.yaml",
+		"step-service-docker-compose-idp.yaml",
 		"step-service-docker-swarm.yaml",
+		"step-service-docker-swarm-ssh.yaml",
 		"step-service-kubernetes.yaml",
+		"step-service-kubernetes-ssh.yaml",
 		"service-deploy.yml",
 	}
 
@@ -48,8 +52,12 @@ func TestExampleConfigsParse(t *testing.T) {
 func TestExampleServiceSteps(t *testing.T) {
 	files := []string{
 		"step-service-docker-compose.yaml",
+		"step-service-docker-compose-ssh.yaml",
+		"step-service-docker-compose-idp.yaml",
 		"step-service-docker-swarm.yaml",
+		"step-service-docker-swarm-ssh.yaml",
 		"step-service-kubernetes.yaml",
+		"step-service-kubernetes-ssh.yaml",
 		"service-deploy.yml",
 	}
 

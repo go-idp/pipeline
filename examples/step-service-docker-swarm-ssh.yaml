@@ -1,0 +1,49 @@
+name: examples/step-service-docker-swarm-ssh
+
+# 在远端 engine（ssh）上用 docker swarm 部署 stack。
+# 运行：pipeline run -c examples/step-service-docker-swarm-ssh.yaml
+#
+# 说明：
+#   - `engine: ssh://user:pass@host:22` 让该 service 步骤在远端 swarm manager 上
+#     执行 `docker stack deploy --prune --with-registry-auth`，并用副本收敛轮询等待就绪。
+#   - 远端主机需已加入 docker swarm 集群。（私有镜像仓库通过环境变量转发到远端，
+#     配合 docker login --password-stdin，凭据不会出现在命令/日志行。）
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+  EUNOMIA_REGISTRY: registry.example.com
+  REGISTRY_USERNAME: deploy-user
+  REGISTRY_PASSWORD: s3cret
+
+stages:
+  - name: deploy
+    jobs:
+      - name: 部署
+        steps:
+          - name: deploy
+            engine: ssh://user:pass@10.0.0.3:22
+            service:
+              type: docker-swarm
+              name: myapp_task_${EUNOMIA_BUILD_ID}
+              # 私有镜像认证（等价 docker login；swarm 部署时配合 --with-registry-auth）
+              image_registry: ${EUNOMIA_REGISTRY}
+              image_registry_username: ${REGISTRY_USERNAME}
+              image_registry_password: ${REGISTRY_PASSWORD}
+              timeout: 180
+              config: |
+                version: '3'
+                services:
+                  web:
+                    image: ${EUNOMIA_REGISTRY}/myapp:build_${EUNOMIA_BUILD_ID}
+                    deploy:
+                      replicas: 2
+                      update_config:
+                        order: start-first
+                      restart_policy:
+                        condition: on-failure
+                    ports:
+                      - target: 80
+                        published: 8080
+                        mode: ingress

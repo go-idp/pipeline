@@ -1,0 +1,67 @@
+name: examples/step-service-kubernetes-ssh
+
+# 在远端 engine（ssh）上用 kubectl 应用 k8s manifest。
+# 运行：pipeline run -c examples/step-service-kubernetes-ssh.yaml
+#
+# 说明：
+#   - `engine: ssh://user:pass@host:22` 让该 service 步骤在远端 kubectl 所在主机上
+#     执行 `kubectl apply -f`，并用 `kubectl wait --for=condition=Available deployment --all` 等待就绪。
+#   - 远端主机需已安装 kubectl 且可访问目标集群（kubeconfig）。
+#   - kubeconfig 缺省取远端 $KUBECONFIG / ~/.kube/config；可通过 kubeconfig 字段显式指路径。
+#   - namespace 缺省为 default，此处显式设为 demo。
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+
+stages:
+  - name: deploy
+    jobs:
+      - name: 部署
+        steps:
+          - name: deploy
+            engine: ssh://user:pass@10.0.0.4:22
+            service:
+              type: kubernetes
+              namespace: demo
+              # 远端主机上的 kubeconfig 路径；缺省用远端默认 kubectl 配置
+              # kubeconfig: /root/.kube/config
+              timeout: 120
+              config: |
+                apiVersion: v1
+                kind: Namespace
+                metadata:
+                  name: demo
+                ---
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: web
+                  namespace: demo
+                spec:
+                  replicas: 2
+                  selector:
+                    matchLabels:
+                      app: web
+                  template:
+                    metadata:
+                      labels:
+                        app: web
+                    spec:
+                      containers:
+                        - name: web
+                          image: nginx:alpine
+                          ports:
+                            - containerPort: 80
+                ---
+                apiVersion: v1
+                kind: Service
+                metadata:
+                  name: web
+                  namespace: demo
+                spec:
+                  selector:
+                    app: web
+                  ports:
+                    - port: 80
+                      targetPort: 80

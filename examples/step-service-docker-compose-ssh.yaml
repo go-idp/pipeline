@@ -1,0 +1,40 @@
+name: examples/step-service-docker-compose-ssh
+
+# 在远端 engine（ssh）上用 docker compose 部署服务。
+# 运行：pipeline run -c examples/step-service-docker-compose-ssh.yaml
+#
+# 说明：
+#   - `engine: ssh://user:pass@host:22` 让该 service 步骤在远端主机执行
+#     `docker compose up -d --wait`（本地不跑 Go SDK）。
+#   - 远端主机需已安装 docker compose v2。
+#   - `${VAR}` 在远端由 docker compose 用步骤环境插值，因此无需把
+#     EUNOMIA_REGISTRY 等值写死在 config 里。
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+  EUNOMIA_REGISTRY: registry.example.com
+
+stages:
+  - name: deploy
+    jobs:
+      - name: 部署
+        steps:
+          - name: deploy
+            engine: ssh://user:pass@10.0.0.2:22
+            service:
+              type: docker-compose
+              name: myapp_task_${EUNOMIA_BUILD_ID}
+              # timeout 是就绪等待上限（compose up --wait-timeout）
+              timeout: 120
+              config: |
+                version: '3'
+                services:
+                  web:
+                    image: ${EUNOMIA_REGISTRY}/myapp:build_${EUNOMIA_BUILD_ID}
+                    ports:
+                      - "8080:80"
+                    environment:
+                      BUILD_TIMESTAMP: $EUNOMIA_BUILD_TIMESTAMP
+                    restart: unless-stopped

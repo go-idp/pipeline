@@ -114,11 +114,58 @@ service:
         image: registry.example.com/myapp:latest
 ```
 
+## Remote Engine (SSH / IDP)
+
+When a service step carries a **remote engine** (`engine: ssh://user:pass@host:22`,
+`idp://...`, etc.), the Go SDK cannot drive it: the docker Go client does not
+support an `ssh://` endpoint, and docker's SSH connhelper rejects inline
+passwords. Instead, pipeline **generates a shell command**
+(`docker compose up` / `docker stack deploy` / `kubectl apply`) and runs it
+**through the engine on the remote host**, exactly like a command step. A local
+(`host`) engine keeps using the Go SDK with in-process readiness checks and
+diagnostics.
+
+```yaml
+steps:
+  - name: deploy on remote
+    engine: ssh://user:pass@10.0.0.2:22   # remote engine
+    service:
+      type: docker-compose
+      name: my-services
+      config: |
+        version: '3'
+        services:
+          web:
+            image: nginx:alpine
+```
+
+Behavior differences on a remote engine:
+
+- **CLI must exist on the remote**: the remote host needs `docker compose` (v2)
+  / `docker` CLI / `kubectl` installed.
+- **Readiness is best-effort**: `docker compose up -d --wait`, a swarm replica
+  poll, and `kubectl wait --for=condition=Available deployment --all`. Failures
+  surface as the step failing (no rich SDK diagnostics).
+- **Registry auth**: `image_registry*` are forwarded to the remote via env vars
+  and used with `docker login --password-stdin`, so credentials are never
+  embedded in the command or log line.
+- **`${VAR}` interpolation** happens on the remote (the step environment is
+  forwarded to the engine session); relative paths and build contexts resolve on
+  the remote host.
+
+For concrete, runnable examples (Docker Compose / Swarm stack / Kubernetes /
+build-and-deploy), see [Remote Service Deployment over SSH / IDP]
+(service-deployment-remote).
+
 ## Examples
 
 - `examples/step-service-docker-compose.yaml`: Docker Compose deployment
 - `examples/step-service-docker-swarm.yaml`: Docker Swarm stack deployment
 - `examples/step-service-kubernetes.yaml`: Kubernetes manifest deployment
+- `examples/step-service-docker-compose-ssh.yaml`: Docker Compose on a remote SSH engine
+- `examples/step-service-docker-compose-idp.yaml`: Docker Compose on a remote idp engine
+- `examples/step-service-docker-swarm-ssh.yaml`: Docker Swarm on a remote SSH engine
+- `examples/step-service-kubernetes-ssh.yaml`: Kubernetes on a remote SSH engine
 - `examples/service-deploy.yml`: Full example (build + service deployment)
 
 ## FAQ
@@ -128,6 +175,10 @@ service:
 The SDK calls run in the **pipeline process host** (the agent host that executes
 `pipeline run`), same host that had `docker compose` / `kubectl` access before.
 Make sure that host can reach docker / kubectl.
+
+If the step has a **remote engine** (`engine: ssh://...`), the Go SDK is not used
+— pipeline generates a command and runs it on the remote host (see
+[Remote Engine](#remote-engine-ssh--idp)).
 
 ### Compatibility with old versions
 

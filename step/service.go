@@ -10,7 +10,10 @@ package step
 //
 // The SDK calls run in the pipeline process, i.e. on the agent host that
 // runs `pipeline run`, which is the same host that has docker / kubectl
-// access today.
+// access today. If the step carries a remote engine (`engine: ssh://...`),
+// the Go SDK cannot drive it; pipeline instead generates the equivalent
+// command (`docker compose up` / `docker stack deploy` / `kubectl apply`)
+// and runs it through the engine on the remote host (see service_command.go).
 type Service struct {
 	// Type is the service type: docker-compose | docker-swarm | kubernetes
 	Type string `json:"type" yaml:"type"`

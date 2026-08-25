@@ -108,11 +108,52 @@ service:
         image: registry.example.com/myapp:latest
 ```
 
+## 远端引擎（SSH / IDP）
+
+当 service 步骤带有 **远端引擎**（`engine: ssh://user:pass@host:22`、`idp://...`
+等）时，Go SDK 无法驱动它：docker 的 Go client 不支持 `ssh://` 端点，且 docker
+的 SSH connhelper 拒绝明文密码。此时 pipeline **生成一段 shell 命令**
+（`docker compose up` / `docker stack deploy` / `kubectl apply`）并 **通过引擎在远端
+主机执行**，与普通 command 步骤完全一致。本地（`host`）引擎仍使用 Go SDK，保留进程内
+的就绪检查与诊断。
+
+```yaml
+steps:
+  - name: deploy on remote
+    engine: ssh://user:pass@10.0.0.2:22   # 远端引擎
+    service:
+      type: docker-compose
+      name: my-services
+      config: |
+        version: '3'
+        services:
+          web:
+            image: nginx:alpine
+```
+
+远端引擎下的行为差异：
+
+- **远端必须有 CLI**：远端主机需安装 `docker compose`（v2）/ `docker` CLI / `kubectl`。
+- **就绪检查为尽力而为**：`docker compose up -d --wait`、swarm 副本轮询、以及
+  `kubectl wait --for=condition=Available deployment --all`；失败以步骤失败的形式浮现
+  （无 SDK 级别的富诊断）。
+- **私有镜像认证**：`image_registry*` 通过环境变量转发到远端，配合
+  `docker login --password-stdin` 使用，凭据不会内嵌到命令或日志行。
+- **`${VAR}` 插值** 发生在远端（步骤环境会转发到引擎会话）；相对路径 / build context
+  在远端主机解析。
+
+具体可运行的例子（Docker Compose / Swarm stack / Kubernetes / 构建后再部署）见
+[通过 SSH / IDP 在远端部署服务](service-deployment-remote)。
+
 ## 示例
 
 - `examples/step-service-docker-compose.yaml`: Docker Compose 部署
 - `examples/step-service-docker-swarm.yaml`: Docker Swarm stack 部署
 - `examples/step-service-kubernetes.yaml`: Kubernetes manifest 部署
+- `examples/step-service-docker-compose-ssh.yaml`: 在远端 SSH 引擎上 Docker Compose 部署
+- `examples/step-service-docker-compose-idp.yaml`: 在远端 idp 引擎上 Docker Compose 部署
+- `examples/step-service-docker-swarm-ssh.yaml`: 在远端 SSH 引擎上 Docker Swarm 部署
+- `examples/step-service-kubernetes-ssh.yaml`: 在远端 SSH 引擎上 Kubernetes 部署
 - `examples/service-deploy.yml`: 完整示例（构建 + 服务部署）
 
 ## 常见问题
@@ -121,6 +162,9 @@ service:
 
 SDK 调用运行在 **pipeline 进程所在主机**（即执行 `pipeline run` 的 agent 主机），与之前
 `docker compose` / `kubectl` CLI 所在主机一致。确保该主机有 docker / kubectl 访问权限。
+
+若步骤带有 **远端引擎**（`engine: ssh://...`），则不使用 Go SDK——pipeline 生成命令并在
+远端主机执行（见 [远端引擎](#远端引擎ssh--idp)）。
 
 ### 与旧版本兼容
 

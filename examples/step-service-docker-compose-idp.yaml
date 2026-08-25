@@ -1,0 +1,38 @@
+name: examples/step-service-docker-compose-idp
+
+# 在远端 engine（idp agent，WebSocket）上用 docker compose 部署服务。
+# 运行：pipeline run -c examples/step-service-docker-compose-idp.yaml
+#
+# 说明：
+#   - `engine: idp://user:pass@10.0.0.5:8838` 让该 service 步骤在 idp agent 所在主机上
+#     执行 `docker compose up -d --wait`（与 ssh 引擎生成的命令完全一致，仅传输方式不同）。
+#   - 可用 `engine: ssh://user:pass@host:22` 或 `engine: host`（走 Go SDK）替换，其余不变。
+#   - idp agent 主机需已安装 docker compose v2。
+
+environment:
+  CI: "true"
+  EUNOMIA_BUILD_ID: "10000"
+  EUNOMIA_BUILD_TIMESTAMP: "1727070237"
+  EUNOMIA_REGISTRY: registry.example.com
+
+stages:
+  - name: deploy
+    jobs:
+      - name: 部署
+        steps:
+          - name: deploy
+            engine: idp://user:pass@10.0.0.5:8838
+            service:
+              type: docker-compose
+              name: myapp_task_${EUNOMIA_BUILD_ID}
+              timeout: 120
+              config: |
+                version: '3'
+                services:
+                  web:
+                    image: ${EUNOMIA_REGISTRY}/myapp:build_${EUNOMIA_BUILD_ID}
+                    ports:
+                      - "8080:80"
+                    environment:
+                      BUILD_TIMESTAMP: $EUNOMIA_BUILD_TIMESTAMP
+                    restart: unless-stopped

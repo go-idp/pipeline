@@ -189,6 +189,23 @@ func (s *Step) Setup(id string, opts ...*Step) error {
 		s.Service.Kubeconfig = expandStepEnv(s.Service.Kubeconfig, s.Environment)
 
 		s.logger.Infof("[workflow][service] use service(type: %s, name: %s) in step(%s)", s.Service.Type, s.Service.Name, s.Name)
+
+		// A remote engine cannot be driven by the Go SDK; generate a command
+		// that the engine executes on the remote host. Registry credentials are
+		// passed as env vars (not embedded in the command string) so they never
+		// appear in command/log lines.
+		if s.serviceUsesCommand() {
+			s.Environment["PIPELINE_SERVICE_REGISTRY"] = s.Service.ImageRegistry
+			s.Environment["PIPELINE_SERVICE_REGISTRY_USER"] = s.Service.ImageRegistryUsername
+			s.Environment["PIPELINE_SERVICE_REGISTRY_PASS"] = s.Service.ImageRegistryPassword
+
+			cmd, err := s.buildServiceCommand()
+			if err != nil {
+				return fmt.Errorf("failed to build service command: %s", err)
+			}
+			s.Command = cmd
+			s.logger.Infof("[workflow][service] use command route (engine: %s, type: %s) in step(%s)", s.Engine, s.Service.Type, s.Name)
+		}
 	}
 
 	// setup state
