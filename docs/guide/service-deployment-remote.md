@@ -196,9 +196,10 @@ What happens on the remote host:
 # ... write $PIPELINE_SERVICE_FILE ...
 echo "$PIPELINE_SERVICE_REGISTRY_PASS" | docker login -u "$PIPELINE_SERVICE_REGISTRY_USER" \
   --password-stdin "$PIPELINE_SERVICE_REGISTRY"
-# prefer --detach=false (waits for convergence) when the engine is >= 17.05
-PIPELINE_SWARM_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "0.0.0")
-if ... version >= 17.05 ...; then
+# prefer --detach=false (waits for convergence) when the docker CLI supports it.
+# `docker stack deploy --detach` was added in Docker Engine 26.0.0, so pipeline
+# probes `docker stack deploy --help` instead of hard-coding a version number.
+if docker stack deploy --help 2>/dev/null | grep -q -- '--detach'; then
   docker stack deploy --detach=false --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
 else
   docker stack deploy --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
@@ -210,6 +211,9 @@ fi
   and consumed with `docker login --password-stdin`, so they never appear in the
   command or log line.
 - `--with-registry-auth` lets swarm workers pull the private image.
+- `--detach=false` is used only when the remote docker CLI supports it (Docker
+  Engine ≥ 26.0, probed via `docker stack deploy --help`); on older engines
+  pipeline falls back to a detached deploy and polls replica convergence itself.
 - Readiness polls the stack label `com.docker.stack.namespace=<name>`; on timeout
   the step fails with `docker-swarm: startup timeout`.
 
@@ -351,7 +355,7 @@ instead of any of these commands.
 | type | command run on the remote host | readiness |
 |------|--------------------------------|-----------|
 | `docker-compose` | `docker compose -f <file> -p <name> up -d --wait --wait-timeout <timeout>` | `compose up --wait` (running/healthy) |
-| `docker-swarm` | `docker stack deploy --prune --with-registry-auth -c <file> <name>` (`--detach=false` when the engine is ≥ 17.05) | `--detach=false` waits for convergence; older engines poll `docker service ls` replica convergence |
+| `docker-swarm` | `docker stack deploy --prune --with-registry-auth -c <file> <name>` (`--detach=false` only when the docker CLI supports it, Docker ≥ 26.0) | `--detach=false` waits for convergence; older engines poll `docker service ls` replica convergence |
 | `kubernetes` | `kubectl apply -f <file>` (+ optional `export KUBECONFIG=<path>`) | `kubectl wait --for=condition=Available deployment --all` |
 
 ## Troubleshooting
@@ -362,6 +366,10 @@ instead of any of these commands.
   endpoint and credentials; or use key-based auth.
 - **`docker stack deploy: This node is not a swarm manager`** — the remote host is not
   a swarm manager; run `docker swarm init` (or join an existing cluster) first.
+- **`unknown flag: --detach`** — the remote host's docker CLI is older than 26.0
+  (`--detach` for `docker stack deploy` was added in Docker Engine 26.0.0). Upgrade
+  docker on the remote host, or keep pipeline as-is (it will fall back to a detached
+  deploy plus a replica convergence poll).
 - **`kubectl: unable to load kubeconfig`** — the remote host has no valid kubeconfig;
   set the step's `kubeconfig` to the correct path on the remote.
 - **`docker-swarm: startup timeout`** — the stack did not converge within `timeout`;

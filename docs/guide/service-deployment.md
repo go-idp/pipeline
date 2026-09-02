@@ -94,6 +94,8 @@ The engine waits for the service to become ready and collects diagnostics on fai
   (`compose.Up` + `Wait`); on failure lists project container states.
 - **docker-swarm**: polls stack service replica convergence
   (running tasks >= desired replicas); on failure collects service and failed-task logs.
+  (On a docker engine ≥ 26.0 the stack deploy SDK uses `--detach=false` so the CLI
+  itself waits for convergence; older engines fall back to this poll.)
 - **kubernetes**: polls Deployment `readyReplicas`; on failure collects pods and events.
 
 ## Private Registry Authentication
@@ -143,9 +145,10 @@ Behavior differences on a remote engine:
 
 - **CLI must exist on the remote**: the remote host needs `docker compose` (v2)
   / `docker` CLI / `kubectl` installed.
-- **Readiness is best-effort**: `docker compose up -d --wait`, a swarm replica
-  poll, and `kubectl wait --for=condition=Available deployment --all`. Failures
-  surface as the step failing (no rich SDK diagnostics).
+- **Readiness is best-effort**: `docker compose up -d --wait`, a swarm `--detach=false`
+  deploy (only when the remote docker CLI supports it, Docker ≥ 26.0) or a swarm
+  replica poll, and `kubectl wait --for=condition=Available deployment --all`.
+  Failures surface as the step failing (no rich SDK diagnostics).
 - **Registry auth**: `image_registry*` are forwarded to the remote via env vars
   and used with `docker login --password-stdin`, so credentials are never
   embedded in the command or log line.

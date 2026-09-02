@@ -82,8 +82,8 @@ func TestBuildServiceCommandSwarm(t *testing.T) {
 		"docker stack deploy --detach=false --prune --with-registry-auth -c",
 		"docker stack deploy --prune --with-registry-auth -c",
 		"'my-stack'",
-		"docker version --format '{{.Server.Version}}'",
-		"17.05",
+		"docker stack deploy --help",
+		"grep -q -- '--detach'",
 		"PIPELINE_STACK='my-stack'",
 		"com.docker.stack.namespace=$PIPELINE_STACK",
 		"date +%s",
@@ -95,6 +95,46 @@ func TestBuildServiceCommandSwarm(t *testing.T) {
 	} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("swarm command missing %q\ncommand:\n%s", want, cmd)
+		}
+	}
+}
+
+// TestSwarmDeployDetachProbe guards the regression where the generated swarm
+// command chose `docker stack deploy --detach=false` by parsing a hard-coded
+// docker version (>= 17.05). `--detach` for `docker stack deploy` was only added
+// in Docker Engine 26.0.0, so that probe wrongly used `--detach=false` on
+// docker < 26.0 and failed with "unknown flag: --detach" (exit 125). The command
+// must probe `--detach` support via `docker stack deploy --help` instead of a
+// version string.
+func TestSwarmDeployDetachProbe(t *testing.T) {
+	s := &Step{Service: &Service{
+		Type:    "docker-swarm",
+		Name:    "stack-x",
+		Config:  "services:\n  web:\n    image: nginx:alpine",
+		Timeout: 90,
+	}}
+
+	cmd, err := s.buildServiceCommand()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, want := range []string{
+		"docker stack deploy --help",
+		"grep -q -- '--detach'",
+		"docker stack deploy --detach=false --prune --with-registry-auth -c",
+		"docker stack deploy --prune --with-registry-auth -c",
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("swarm command missing %q\ncommand:\n%s", want, cmd)
+		}
+	}
+
+	// The old version-string probe must be gone: `--detach` for `docker stack
+	// deploy` only is only supported from Docker Engine 26.0.0.
+	for _, old := range []string{"docker version --format", "17.05", "PIPELINE_SWARM_VERSION"} {
+		if strings.Contains(cmd, old) {
+			t.Errorf("swarm command still uses version-string probe %q\ncommand:\n%s", old, cmd)
 		}
 	}
 }
@@ -186,16 +226,16 @@ func TestEngineVersionAtLeast(t *testing.T) {
 		major, minor int
 		expect       bool
 	}{
-		{"27.3.1", 17, 5, true},
-		{"24.0.7", 17, 5, true},
-		{"18.09.7", 17, 5, true},
-		{"17.05.0-ce", 17, 5, true},
-		{"17.06.2", 17, 5, true},
-		{"17.04.0", 17, 5, false},
-		{"16.04.0", 17, 5, false},
-		{"1.13.1", 17, 5, false},
-		{"", 17, 5, false},
-		{"abc", 17, 5, false},
+		{"27.3.1", 26, 0, true},
+		{"26.0.0", 26, 0, true},
+		{"26.1.0", 26, 0, true},
+		{"25.0.6", 26, 0, false},
+		{"24.0.7", 26, 0, false},
+		{"20.10.22", 26, 0, false},
+		{"17.05.0-ce", 26, 0, false},
+		{"1.13.1", 26, 0, false},
+		{"", 26, 0, false},
+		{"abc", 26, 0, false},
 	}
 	for _, c := range cases {
 		if got := engineVersionAtLeast(c.version, c.major, c.minor); got != c.expect {

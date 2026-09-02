@@ -184,9 +184,10 @@ stages:
 # ... 写入 $PIPELINE_SERVICE_FILE ...
 echo "$PIPELINE_SERVICE_REGISTRY_PASS" | docker login -u "$PIPELINE_SERVICE_REGISTRY_USER" \
   --password-stdin "$PIPELINE_SERVICE_REGISTRY"
-# 引擎版本 >= 17.05 时优先 --detach=false（自身等待收敛）
-PIPELINE_SWARM_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "0.0.0")
-if ... 版本 >= 17.05 ...; then
+# 当远端 docker CLI 支持时才用 --detach=false（自身等待收敛）。
+# `docker stack deploy --detach` 是 Docker Engine 26.0.0 才引入的，pipeline 用
+# `docker stack deploy --help` 探测，而不用硬编码版本号。
+if docker stack deploy --help 2>/dev/null | grep -q -- '--detach'; then
   docker stack deploy --detach=false --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
 else
   docker stack deploy --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" 'myapp_task_10000'
@@ -197,6 +198,8 @@ fi
 - 仓库凭据以**环境变量**（`PIPELINE_SERVICE_REGISTRY*`）转发，配合 `docker login --password-stdin`
   使用，因此**不会出现在命令或日志行**。
 - `--with-registry-auth` 让 swarm worker 能拉取私有镜像。
+- `--detach=false` 仅在远端 docker CLI 支持时使用（Docker Engine ≥ 26.0，通过
+  `docker stack deploy --help` 探测）；较旧引擎则回退为分离式部署，由 pipeline 轮询副本收敛。
 - 就绪检查按 stack label `com.docker.stack.namespace=<name>` 轮询；超时则步骤失败并提示
   `docker-swarm: startup timeout`。
 
@@ -334,7 +337,7 @@ stages:
 | type | 远端主机执行的命令 | 就绪检查 |
 |------|--------------------|----------|
 | `docker-compose` | `docker compose -f <file> -p <name> up -d --wait --wait-timeout <timeout>` | `compose up --wait`（running/healthy） |
-| `docker-swarm` | `docker stack deploy --prune --with-registry-auth -c <file> <name>`（引擎 ≥ 17.05 时加 `--detach=false`） | `--detach=false` 由 CLI 等待收敛；旧版回退为轮询 `docker service ls` 副本收敛 |
+| `docker-swarm` | `docker stack deploy --prune --with-registry-auth -c <file> <name>`（仅当 docker CLI 支持时才加 `--detach=false`，Docker ≥ 26.0） | `--detach=false` 由 CLI 等待收敛；旧版回退为轮询 `docker service ls` 副本收敛 |
 | `kubernetes` | `kubectl apply -f <file>`（可选 `export KUBECONFIG=<path>`） | `kubectl wait --for=condition=Available deployment --all` |
 
 ## 故障排查
@@ -345,6 +348,9 @@ stages:
   或改用 key 认证。
 - **`docker stack deploy: This node is not a swarm manager`** —— 远端主机不是 swarm manager；
   先 `docker swarm init`（或加入已有集群）。
+- **`unknown flag: --detach`** —— 远端主机 docker CLI 低于 26.0（`docker stack deploy --detach`
+  是 Docker Engine 26.0.0 才引入的）。升级远端 docker，或保持 pipeline 现状（会自动回退为
+  分离式部署 + 副本收敛轮询）。
 - **`kubectl: unable to load kubeconfig`** —— 远端主机没有有效 kubeconfig；把步骤的
   `kubeconfig` 指到远端正确路径。
 - **`docker-swarm: startup timeout`** —— stack 未在 `timeout` 内收敛；检查 swarm 节点上的

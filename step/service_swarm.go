@@ -61,9 +61,9 @@ func (s *Step) runServiceSwarm(ctx context.Context) error {
 	detach := true
 	if s.swarmServerSupportsDetachFalse(ctx, dockerClient) {
 		detach = false
-		s.serviceLogf("docker-swarm: daemon >= 17.05, deploy with --detach=false (CLI waits for convergence)")
+		s.serviceLogf("docker-swarm: daemon >= 26.0, deploy with --detach=false (CLI waits for convergence)")
 	} else {
-		s.serviceLogf("docker-swarm: daemon < 17.05, deploy detached + readiness poll")
+		s.serviceLogf("docker-swarm: daemon < 26.0, deploy detached + readiness poll")
 	}
 
 	opts := options.Deploy{
@@ -108,16 +108,18 @@ func (s *Step) runServiceSwarm(ctx context.Context) error {
 	return nil
 }
 
-// swarmServerSupportsDetachFalse reports whether the daemon supports
-// `docker stack deploy --detach=false` (engine >= 17.05), so the CLI SDK can
-// wait for convergence by itself instead of the pipeline polling.
+// swarmServerSupportsDetachFalse reports whether the docker host supports
+// `docker stack deploy --detach=false` (engine >= 26.0), so the CLI SDK can
+// wait for convergence by itself instead of the pipeline polling. The `--detach`
+// flag for `docker stack deploy` was added in Docker Engine 26.0.0; older hosts
+// must fall back to a detached deploy plus the pipeline's own readiness poll.
 func (s *Step) swarmServerSupportsDetachFalse(ctx context.Context, dockerClient *client.Client) bool {
 	v, err := dockerClient.ServerVersion(ctx)
 	if err != nil {
 		s.serviceLogf("docker-swarm: failed to get server version, fall back to detached deploy + poll: %s", err)
 		return false
 	}
-	return engineVersionAtLeast(v.Version, 17, 5)
+	return engineVersionAtLeast(v.Version, 26, 0)
 }
 
 // engineVersionAtLeast reports whether a docker version string ("27.3.1") is at

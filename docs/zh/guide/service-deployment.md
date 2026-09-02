@@ -87,7 +87,8 @@ steps:
 - **docker-compose**: 等待所有容器进入 running/healthy 状态（`compose.Up` + `Wait`）；
   失败时列出项目容器状态。
 - **docker-swarm**: 轮询 stack 服务的副本收敛（running tasks >= desired replicas）；
-  失败时采集服务与失败任务日志。
+  失败时采集服务与失败任务日志。（在 docker engine ≥ 26.0 上 stack deploy SDK 使用
+  `--detach=false` 由 CLI 自身等待收敛；较旧引擎回退为该轮询。）
 - **kubernetes**: 轮询 Deployment 的 `readyReplicas`；失败时采集 pods 与 events。
 
 ## 私有镜像仓库认证
@@ -134,7 +135,8 @@ steps:
 远端引擎下的行为差异：
 
 - **远端必须有 CLI**：远端主机需安装 `docker compose`（v2）/ `docker` CLI / `kubectl`。
-- **就绪检查为尽力而为**：`docker compose up -d --wait`、swarm 副本轮询、以及
+- **就绪检查为尽力而为**：`docker compose up -d --wait`、swarm 的 `--detach=false`
+  部署（仅当远端 docker CLI 支持时，Docker ≥ 26.0）或 swarm 副本轮询、以及
   `kubectl wait --for=condition=Available deployment --all`；失败以步骤失败的形式浮现
   （无 SDK 级别的富诊断）。
 - **私有镜像认证**：`image_registry*` 通过环境变量转发到远端，配合

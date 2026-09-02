@@ -5,3 +5,7 @@ tmp/
 
 node_modules/
 *.tsbuildinfo
+
+# local Go build/test cache
+.gocache/
+.gotmp/

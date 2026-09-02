@@ -101,16 +101,17 @@ func (s *Step) buildSwarmCommand() string {
 
 // swarmDeploy deploys the swarm stack, preferring `docker stack deploy
 // --detach=false` (which waits for the stack services to converge itself) when
-// the executing host's docker supports it (engine >= 17.05). Older engines fall
-// back to a detached deploy plus a replica convergence poll. The engine version
-// is read from `docker version --format '{{.Server.Version}}'` on that host.
+// the executing host's docker CLI supports it. The `--detach` flag for
+// `docker stack deploy` was added in Docker Engine 26.0.0; older CLIs must fall
+// back to a detached deploy plus a replica convergence poll. Support is probed
+// with `docker stack deploy --help` rather than a hard-coded version string, so
+// any docker whose CLI lacks the flag is handled correctly (e.g. 20.10.x).
 func swarmDeploy(stack string, timeout int64) string {
-	body := `PIPELINE_SWARM_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "0.0.0")
-if awk -v v="$PIPELINE_SWARM_VERSION" 'BEGIN { split(v,a,"."); exit !(a[1]>17 || (a[1]==17 && a[2]>=5)) }'; then
-  echo "docker-swarm: deploy stack '__STACK__' with --detach=false (version $PIPELINE_SWARM_VERSION)"
+	body := `if docker stack deploy --help 2>/dev/null | grep -q -- '--detach'; then
+  echo "docker-swarm: deploy stack '__STACK__' with --detach=false (docker stack deploy supports --detach)"
   docker stack deploy --detach=false --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" '__STACK__'
 else
-  echo "docker-swarm: version $PIPELINE_SWARM_VERSION < 17.05, fall back to detached deploy + readiness poll"
+  echo "docker-swarm: docker stack deploy does not support --detach, fall back to detached deploy + readiness poll"
   docker stack deploy --prune --with-registry-auth -c "$PIPELINE_SERVICE_FILE" '__STACK__'
 __READINESS__
 fi`
