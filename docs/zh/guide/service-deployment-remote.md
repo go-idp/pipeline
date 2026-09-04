@@ -355,6 +355,10 @@ stages:
   只读（如 macOS agent 以 `HOME=/root` 运行），`docker login` 无法写 `~/.docker/config.json`。
   pipeline 会在登录前把 `DOCKER_CONFIG` 重定向到可写临时目录（并对随后的部署同样生效），故无需
   额外处理；保持当前 pipeline CLI，或确保远端主机 `HOME` 可写。
+- **`docker: command not found`** —— 远端主机 PATH 里没有 Homebrew 的 bin 目录。macOS 上
+  docker 装在 `/opt/homebrew/bin`（Apple Silicon）或 `/usr/local/bin`（Intel），都不在非登录
+  `/bin/sh` 的默认 PATH 里。pipeline 会在 docker/kubectl 不可用时把这些目录前置到 PATH，故无需
+  额外处理。
 - **`kubectl: unable to load kubeconfig`** —— 远端主机没有有效 kubeconfig；把步骤的
   `kubeconfig` 指到远端正确路径。
 - **`docker-swarm: startup timeout`** —— stack 未在 `timeout` 内收敛；检查 swarm 节点上的

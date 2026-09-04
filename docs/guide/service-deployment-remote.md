@@ -372,6 +372,11 @@ instead of any of these commands.
   `DOCKER_CONFIG` to a writable temp dir before logging in (and for the following
   deploy), so no action is needed; prefer the current pipeline CLI, or ensure the
   remote host has a writable `HOME`.
+- **`docker: command not found`** — the remote host's PATH does not include the
+  Homebrew bin dirs. On macOS, docker is installed at `/opt/homebrew/bin` (Apple
+  Silicon) or `/usr/local/bin` (Intel), which is not on the default PATH of a
+  non-login `/bin/sh`. pipeline prepends these dirs when docker/kubectl are not
+  already resolvable, so no action is needed.
 - **`unknown flag: --detach`** — the remote host's docker CLI is older than 26.0
   (`--detach` for `docker stack deploy` was added in Docker Engine 26.0.0). Upgrade
   docker on the remote host, or keep pipeline as-is (it will fall back to a detached
