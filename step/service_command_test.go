@@ -349,19 +349,16 @@ func TestBuildServiceCommandDefaultNamespace(t *testing.T) {
 	}
 }
 
-// TestServiceCommand_RegistryLoginKeepsDockerConfig guards the regression where
-// the generated remote deploy command redirected DOCKER_CONFIG to a temp dir
-// before `docker login`. On hosts whose HOME is read-only (e.g. macOS agents
-// with HOME=/root) that avoided "error saving credentials: mkdir /root: read-only
-// file system", but it also changed the docker CLI's config dir and hid the
-// user-level Compose plugin (~/.docker/cli-plugins/docker-compose for Colima),
-// so `docker compose -f ...` failed with "unknown shorthand flag: 'f' in -f".
-//
-// The backend pipeline runtime no longer forces HOME=/root (the deploy step
-// inherits the agent host's real, writable HOME), so docker login writes to
-// $HOME/.docker directly and the Compose plugin stays visible. The command must
-// NOT set DOCKER_CONFIG / PIPELINE_SERVICE_DOCKER_CONFIG.
-func TestServiceCommand_RegistryLoginKeepsDockerConfig(t *testing.T) {
+// TestServiceCommand_RegistryLoginRedirectsDockerConfig guards the regression
+// where the generated remote deploy command ran `docker login` without first
+// redirecting DOCKER_CONFIG. On hosts whose HOME is read-only (e.g. macOS agents
+// whose HOME is /root), `docker login` failed with "error saving credentials:
+// mkdir /root: read-only file system". The command must redirect DOCKER_CONFIG to
+// a writable temp dir (so login succeeds regardless of HOME) and symlink the
+// user-level CLI plugins (~/.docker/cli-plugins, e.g. the Colima Compose plugin)
+// into it, so `docker compose -f ...` stays discoverable (otherwise it fails with
+// "unknown shorthand flag: 'f' in -f").
+func TestServiceCommand_RegistryLoginRedirectsDockerConfig(t *testing.T) {
 	types := []string{"docker-compose", "docker-swarm"}
 	for _, typ := range types {
 		t.Run(typ, func(t *testing.T) {
@@ -381,20 +378,17 @@ func TestServiceCommand_RegistryLoginKeepsDockerConfig(t *testing.T) {
 			}
 
 			for _, want := range []string{
+				`export PIPELINE_SERVICE_DOCKER_CONFIG=$(mktemp -d)`,
+				`export DOCKER_CONFIG="$PIPELINE_SERVICE_DOCKER_CONFIG"`,
 				"docker login",
 				"--password-stdin",
-				"PIPELINE_SERVICE_REGISTRY_PASS",
+				`mkdir -p "$PIPELINE_SERVICE_DOCKER_CONFIG/cli-plugins"`,
+				`"$_home/.docker/cli-plugins"`,
+				`ln -sf "$_p" "$PIPELINE_SERVICE_DOCKER_CONFIG/cli-plugins/$(basename "$_p")"`,
+				`[ -n "$PIPELINE_SERVICE_DOCKER_CONFIG" ] && rm -rf "$PIPELINE_SERVICE_DOCKER_CONFIG"`,
 			} {
 				if !strings.Contains(cmd, want) {
 					t.Errorf("command missing %q\ncommand:\n%s", want, cmd)
-				}
-			}
-
-			// The Compose plugin must remain discoverable: never redirect
-			// DOCKER_CONFIG (which would hide ~/.docker/cli-plugins).
-			for _, old := range []string{"PIPELINE_SERVICE_DOCKER_CONFIG", `export DOCKER_CONFIG=`} {
-				if strings.Contains(cmd, old) {
-					t.Errorf("command still redirects DOCKER_CONFIG (%q)\ncommand:\n%s", old, cmd)
 				}
 			}
 

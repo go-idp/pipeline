@@ -52,6 +52,12 @@ func (s *Step) buildServiceCommand() (string, error) {
 const (
 	// serviceConfigFile is the env var holding the path of the temp config file.
 	serviceConfigFile = "PIPELINE_SERVICE_FILE"
+	// serviceDockerConfig is the env var holding the path of a temp Docker
+	// config dir. It redirects DOCKER_CONFIG so that `docker login` never writes
+	// credentials under a read-only HOME (e.g. macOS agents whose HOME is /root),
+	// while user-level CLI plugins (~/.docker/cli-plugins, e.g. Compose) are
+	// symlinked into it so they stay discoverable.
+	serviceDockerConfig = "PIPELINE_SERVICE_DOCKER_CONFIG"
 	// serviceHeredoc is the quoted-heredoc delimiter used to write config.
 	// Quoting prevents the local shell from interpolating `${VAR}`/`$`/`;`.
 	serviceHeredoc = "PIPELINE_SERVICE_EOF"
@@ -69,16 +75,32 @@ func writeServiceConfig(config string) string {
 // vars (PIPELINE_SERVICE_REGISTRY / _USER / _PASS), so credentials never appear
 // in the command string. It is a no-op when no registry is configured.
 //
-// It deliberately does NOT redirect DOCKER_CONFIG. The backend pipeline runtime
-// no longer forces HOME=/root (the deploy step inherits the agent host's real,
-// writable HOME), so `docker login` writes credentials to $HOME/.docker directly.
-// Redirecting DOCKER_CONFIG to a temp dir would change the docker CLI's config
-// dir and hide the user-level Compose plugin (~/.docker/cli-plugins/docker-compose
-// for Colima), making `docker compose -f ...` fail with "unknown shorthand flag:
-// 'f' in -f". The compose / stack commands that follow read the same $HOME/.docker
-// config, so registry auth is still forwarded.
+// It redirects DOCKER_CONFIG to a writable temp dir so `docker login` succeeds
+// even when the pipeline's HOME is not writable (e.g. a macOS agent whose HOME is
+// /root, which is read-only). Redirecting DOCKER_CONFIG alone would hide the
+// user-level CLI plugins (~/.docker/cli-plugins), so the Compose plugin (Colima /
+// Homebrew) is symlinked into the temp config dir's cli-plugins — otherwise
+// `docker compose -f ...` would fail with "unknown shorthand flag: 'f' in -f".
+// The plugin lives in the docker user's home, which may differ from $HOME, so
+// both $HOME and the macOS console user's home are probed.
 func registryLogin() string {
 	return `if [ -n "$PIPELINE_SERVICE_REGISTRY" ]; then
+  export PIPELINE_SERVICE_DOCKER_CONFIG=$(mktemp -d)
+  export DOCKER_CONFIG="$PIPELINE_SERVICE_DOCKER_CONFIG"
+  mkdir -p "$PIPELINE_SERVICE_DOCKER_CONFIG/cli-plugins"
+  _plugin_home="${HOME:-}"
+  _console_user=""
+  if [ "$(uname -s)" = "Darwin" ]; then
+    _console_user="$(stat -f '%Su' /dev/console 2>/dev/null || true)"
+  fi
+  for _home in "$_plugin_home" "/Users/$_console_user"; do
+    if [ -n "$_home" ] && [ "$_home" != "/Users/" ] && [ -d "$_home/.docker/cli-plugins" ]; then
+      for _p in "$_home/.docker/cli-plugins"/*; do
+        [ -e "$_p" ] || continue
+        ln -sf "$_p" "$PIPELINE_SERVICE_DOCKER_CONFIG/cli-plugins/$(basename "$_p")"
+      done
+    fi
+  done
   echo "$PIPELINE_SERVICE_REGISTRY_PASS" | docker login -u "$PIPELINE_SERVICE_REGISTRY_USER" --password-stdin "$PIPELINE_SERVICE_REGISTRY"
 fi`
 }
@@ -144,7 +166,9 @@ func (s *Step) head() []string {
 		pathBootstrap("docker"),
 		dockerHostDiscovery(),
 		fmt.Sprintf("export %s=$(mktemp)", serviceConfigFile),
-		fmt.Sprintf(`trap 'rm -f "$%s"' EXIT`, serviceConfigFile),
+		// PIPELINE_SERVICE_DOCKER_CONFIG is only set when a registry is configured
+		// (see registryLogin); clean it up when present, otherwise skip.
+		fmt.Sprintf(`trap 'rm -f "$%s"; [ -n "$%s" ] && rm -rf "$%s"' EXIT`, serviceConfigFile, serviceDockerConfig, serviceDockerConfig),
 	}
 }
 
