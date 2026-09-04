@@ -377,6 +377,14 @@ instead of any of these commands.
   Silicon) or `/usr/local/bin` (Intel), which is not on the default PATH of a
   non-login `/bin/sh`. pipeline prepends these dirs when docker/kubectl are not
   already resolvable, so no action is needed.
+- **`failed to connect to the docker API at unix:///var/run/docker.sock`** — the
+  remote host is macOS, where the daemon socket is not at `/var/run/docker.sock`;
+  Docker Desktop / OrbStack / Colima place it under the user's home
+  (`~/.docker/run/docker.sock`, `~/.orbstack/run/docker.sock`,
+  `~/.colima/<profile>/docker.sock`). pipeline probes these paths (and the macOS
+  logged-in user's home as a fallback) and sets `DOCKER_HOST` before running
+  docker, so no action is needed; ensure the agent host's pipeline CLI is up to
+  date.
 - **`unknown flag: --detach`** — the remote host's docker CLI is older than 26.0
   (`--detach` for `docker stack deploy` was added in Docker Engine 26.0.0). Upgrade
   docker on the remote host, or keep pipeline as-is (it will fall back to a detached

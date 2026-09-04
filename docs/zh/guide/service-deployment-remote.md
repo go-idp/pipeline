@@ -359,6 +359,11 @@ stages:
   docker 装在 `/opt/homebrew/bin`（Apple Silicon）或 `/usr/local/bin`（Intel），都不在非登录
   `/bin/sh` 的默认 PATH 里。pipeline 会在 docker/kubectl 不可用时把这些目录前置到 PATH，故无需
   额外处理。
+- **`failed to connect to the docker API at unix:///var/run/docker.sock`** —— 远端主机是
+  macOS，daemon socket 不在 `/var/run/docker.sock`；Docker Desktop / OrbStack / Colima 把
+  socket 放在用户主目录下（`~/.docker/run/docker.sock`、`~/.orbstack/run/docker.sock`、
+  `~/.colima/<profile>/docker.sock`）。pipeline 会探测这些路径（并兜底取 macOS 登录用户的家目录）
+  并在跑 docker 前设置 `DOCKER_HOST`，故无需额外处理；请确保 agent 主机的 pipeline CLI 是最新的。
 - **`kubectl: unable to load kubeconfig`** —— 远端主机没有有效 kubeconfig；把步骤的
   `kubeconfig` 指到远端正确路径。
 - **`docker-swarm: startup timeout`** —— stack 未在 `timeout` 内收敛；检查 swarm 节点上的
