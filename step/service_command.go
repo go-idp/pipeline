@@ -52,11 +52,6 @@ func (s *Step) buildServiceCommand() (string, error) {
 const (
 	// serviceConfigFile is the env var holding the path of the temp config file.
 	serviceConfigFile = "PIPELINE_SERVICE_FILE"
-	// serviceDockerConfig is the env var holding the path of a temp Docker
-	// config dir. It is used to redirect DOCKER_CONFIG so that `docker login`
-	// and `docker stack deploy --with-registry-auth` never write credentials
-	// under a read-only HOME (e.g. macOS hosts whose HOME resolves to /root).
-	serviceDockerConfig = "PIPELINE_SERVICE_DOCKER_CONFIG"
 	// serviceHeredoc is the quoted-heredoc delimiter used to write config.
 	// Quoting prevents the local shell from interpolating `${VAR}`/`$`/`;`.
 	serviceHeredoc = "PIPELINE_SERVICE_EOF"
@@ -74,17 +69,16 @@ func writeServiceConfig(config string) string {
 // vars (PIPELINE_SERVICE_REGISTRY / _USER / _PASS), so credentials never appear
 // in the command string. It is a no-op when no registry is configured.
 //
-// Before logging in it redirects DOCKER_CONFIG to a fresh temp dir so Docker
-// writes its credential config (~/.docker/config.json) to a writable location.
-// On hosts whose HOME is read-only (e.g. macOS agents running with HOME=/root),
-// `docker login` otherwise fails with "error saving credentials: mkdir /root:
-// read-only file system". The same exported DOCKER_CONFIG is then used by the
-// `docker compose up` / `docker stack deploy --with-registry-auth` commands that
-// follow, so the registry auth is still available for the actual deploy.
+// It deliberately does NOT redirect DOCKER_CONFIG. The backend pipeline runtime
+// no longer forces HOME=/root (the deploy step inherits the agent host's real,
+// writable HOME), so `docker login` writes credentials to $HOME/.docker directly.
+// Redirecting DOCKER_CONFIG to a temp dir would change the docker CLI's config
+// dir and hide the user-level Compose plugin (~/.docker/cli-plugins/docker-compose
+// for Colima), making `docker compose -f ...` fail with "unknown shorthand flag:
+// 'f' in -f". The compose / stack commands that follow read the same $HOME/.docker
+// config, so registry auth is still forwarded.
 func registryLogin() string {
 	return `if [ -n "$PIPELINE_SERVICE_REGISTRY" ]; then
-  export PIPELINE_SERVICE_DOCKER_CONFIG=$(mktemp -d)
-  export DOCKER_CONFIG="$PIPELINE_SERVICE_DOCKER_CONFIG"
   echo "$PIPELINE_SERVICE_REGISTRY_PASS" | docker login -u "$PIPELINE_SERVICE_REGISTRY_USER" --password-stdin "$PIPELINE_SERVICE_REGISTRY"
 fi`
 }
@@ -150,9 +144,7 @@ func (s *Step) head() []string {
 		pathBootstrap("docker"),
 		dockerHostDiscovery(),
 		fmt.Sprintf("export %s=$(mktemp)", serviceConfigFile),
-		// PIPELINE_SERVICE_DOCKER_CONFIG is only set when a registry is configured
-		// (see registryLogin); clean it up when present, otherwise skip.
-		fmt.Sprintf(`trap 'rm -f "$%s"; [ -n "$%s" ] && rm -rf "$%s"' EXIT`, serviceConfigFile, serviceDockerConfig, serviceDockerConfig),
+		fmt.Sprintf(`trap 'rm -f "$%s"' EXIT`, serviceConfigFile),
 	}
 }
 
