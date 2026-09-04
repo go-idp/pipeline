@@ -184,11 +184,32 @@ func (s *Step) head() []string {
 	}
 }
 
+// composeUp returns a shell snippet that runs `docker compose up` (Compose v2,
+// preferred) and falls back to `docker-compose` (v1) when the v2 plugin is not
+// installed. When neither is available it fails with a helpful message pointing
+// to install guidance. Compose v2 supports `--wait`/`--wait-timeout`; the v1
+// standalone binary only supports a detached `up -d`.
+func composeUp(project string, timeout int64) string {
+	return fmt.Sprintf(`if docker compose version >/dev/null 2>&1; then
+  docker compose -f "$%s" -p '%s' up -d --wait --wait-timeout %d
+elif command -v docker-compose >/dev/null 2>&1; then
+  echo "pipeline: 'docker compose' (Compose v2) not found, falling back to 'docker-compose' (v1)"
+  docker-compose -f "$%s" -p '%s' up -d
+else
+  echo "pipeline: neither 'docker compose' (Compose v2) nor 'docker-compose' (v1) is available on this host." >&2
+  echo "  Please confirm your docker version and install Docker Compose v2:" >&2
+  echo "    macOS (Homebrew):      brew install docker-compose" >&2
+  echo "    Ubuntu/Debian:         sudo apt-get install docker-compose-plugin   (old: sudo apt install docker-compose)" >&2
+  echo "    Docker Desktop:        enable the Compose integration" >&2
+  exit 1
+fi`, serviceConfigFile, project, timeout, serviceConfigFile, project)
+}
+
 func (s *Step) buildComposeCommand() string {
 	return strings.Join(append(s.head(),
 		writeServiceConfig(s.Service.Config),
 		registryLogin(),
-		fmt.Sprintf(`docker compose -f "$%s" -p '%s' up -d --wait --wait-timeout %d`, serviceConfigFile, s.Service.Name, s.Service.Timeout),
+		composeUp(s.Service.Name, s.Service.Timeout),
 	), "\n")
 }
 

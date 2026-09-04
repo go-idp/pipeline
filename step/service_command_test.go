@@ -54,6 +54,14 @@ func TestBuildServiceCommandCompose(t *testing.T) {
 		"PIPELINE_SERVICE_REGISTRY_PASS",
 		"PIPELINE_SERVICE_EOF",
 		"set -e",
+		// docker compose (v2) preferred; fall back to docker-compose (v1); else
+		// fail with install guidance.
+		"docker compose version",
+		"command -v docker-compose",
+		"falling back to 'docker-compose' (v1)",
+		"sudo apt-get install docker-compose-plugin",
+		"brew install docker-compose",
+		"exit 1",
 	} {
 		if !strings.Contains(cmd, want) {
 			t.Errorf("compose command missing %q\ncommand:\n%s", want, cmd)
