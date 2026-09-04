@@ -367,12 +367,12 @@ instead of any of these commands.
 - **`docker stack deploy: This node is not a swarm manager`** — the remote host is not
   a swarm manager; run `docker swarm init` (or join an existing cluster) first.
 - **`error saving credentials: mkdir /root: read-only file system`** — the remote
-  host's `HOME` is read-only (e.g. a macOS agent whose `HOME` was forced to
-  `/root`), so `docker login` cannot write `~/.docker/config.json`. The backend no
-  longer forces `HOME=/root` (the deploy step inherits the agent host's real,
-  writable `HOME`), and pipeline does not redirect `DOCKER_CONFIG` (doing so would
-  hide the Compose plugin). Prefer the current pipeline CLI / backend, or ensure
-  the remote host has a writable `HOME`.
+  host's `HOME` is read-only (e.g. a macOS agent whose `HOME` is `/root`), so
+  `docker login` cannot write `~/.docker/config.json`. pipeline redirects
+  `DOCKER_CONFIG` to a writable temp dir before logging in, and symlinks the docker
+  user's `~/.docker/cli-plugins` into it so the Compose plugin stays discoverable
+  (otherwise `docker compose -f ...` fails with "unknown shorthand flag: 'f' in
+  -f"). No action is needed; prefer the current pipeline CLI.
 - **`docker: command not found`** — the remote host's PATH does not include the
   Homebrew bin dirs. On macOS, docker is installed at `/opt/homebrew/bin` (Apple
   Silicon) or `/usr/local/bin` (Intel), which is not on the default PATH of a

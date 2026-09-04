@@ -352,10 +352,11 @@ stages:
   是 Docker Engine 26.0.0 才引入的）。升级远端 docker，或保持 pipeline 现状（会自动回退为
   分离式部署 + 副本收敛轮询）。
 - **`error saving credentials: mkdir /root: read-only file system`** —— 远端主机 `HOME`
-  只读（如 macOS agent 的 `HOME` 被强制成 `/root`），`docker login` 无法写 `~/.docker/config.json`。
-  backend 已不再强制 `HOME=/root`（部署步骤继承 agent 真实可写的主目录），pipeline 也不重定向
-  `DOCKER_CONFIG`（重定向会隐藏 Compose 插件）。保持最新的 pipeline CLI / backend，或确保远端主机
-  `HOME` 可写。
+  只读（如 macOS agent 的 `HOME` 是 `/root`），`docker login` 无法写 `~/.docker/config.json`。
+  pipeline 会在登录前把 `DOCKER_CONFIG` 重定向到可写临时目录，并把 docker 用户
+  `~/.docker/cli-plugins` 里的 CLI 插件软链进该目录，使 Compose 插件仍可被发现（否则
+  `docker compose -f ...` 会报 `unknown shorthand flag: 'f' in -f`）。无需额外处理；保持最新的
+  pipeline CLI。
 - **`docker: command not found`** —— 远端主机 PATH 里没有 Homebrew 的 bin 目录。macOS 上
   docker 装在 `/opt/homebrew/bin`（Apple Silicon）或 `/usr/local/bin`（Intel），都不在非登录
   `/bin/sh` 的默认 PATH 里。pipeline 会在 docker/kubectl 不可用时把这些目录前置到 PATH，故无需
