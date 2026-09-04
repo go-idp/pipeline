@@ -107,11 +107,48 @@ func pathBootstrap(bin string) string {
 fi`, bin, bin)
 }
 
+// dockerHostDiscovery returns a shell snippet that points DOCKER_HOST at the
+// running docker daemon. On macOS the daemon socket is not at /var/run/docker.sock
+// (the Linux default); Docker Desktop / OrbStack / Colima place it under the
+// user's home: ~/.docker/run/docker.sock, ~/.orbstack/run/docker.sock, or
+// ~/.colima/<profile>/docker.sock. Without DOCKER_HOST the docker CLI falls back
+// to the default context (unix:///var/run/docker.sock) and fails on macOS with
+// "failed to connect to the docker API at unix:///var/run/docker.sock ...
+// no such file or directory".
+//
+// It honors an existing DOCKER_HOST (no-op on Linux / when already set). If the
+// pipeline runs as a user other than the docker user (e.g. root), it also probes
+// the console (logged-in desktop) user's home on macOS, so the socket is found
+// regardless.
+func dockerHostDiscovery() string {
+	return `if [ -z "$DOCKER_HOST" ]; then
+  _docker_home="${HOME:-}"
+  _console_user=""
+  if [ "$(uname -s)" = "Darwin" ]; then
+    _console_user="$(stat -f '%Su' /dev/console 2>/dev/null || true)"
+  fi
+  for _home in "$_docker_home" "/Users/$_console_user"; do
+    if [ -n "$_home" ] && [ "$_home" != "/Users/" ]; then
+      for _sock in "$_home/.docker/run/docker.sock" "$_home/.orbstack/run/docker.sock" "$_home/.colima/default/docker.sock" "$_home/.colima"/*/docker.sock; do
+        if [ -S "$_sock" ]; then
+          export DOCKER_HOST="unix://$_sock"
+          break 2
+        fi
+      done
+    fi
+  done
+  if [ -z "$DOCKER_HOST" ] && [ -S /var/run/docker.sock ]; then
+    export DOCKER_HOST="unix:///var/run/docker.sock"
+  fi
+fi`
+}
+
 // head returns the common prologue: fail-fast + PATH bootstrap + temp file.
 func (s *Step) head() []string {
 	return []string{
 		"set -e",
 		pathBootstrap("docker"),
+		dockerHostDiscovery(),
 		fmt.Sprintf("export %s=$(mktemp)", serviceConfigFile),
 		// PIPELINE_SERVICE_DOCKER_CONFIG is only set when a registry is configured
 		// (see registryLogin); clean it up when present, otherwise skip.

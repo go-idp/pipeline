@@ -290,6 +290,48 @@ func TestServiceCommand_PathBootstrap(t *testing.T) {
 	})
 }
 
+// TestServiceCommand_DockerHostDiscovery guards the regression where the
+// generated remote command ran `docker` without pointing DOCKER_HOST at the
+// daemon socket. On macOS the daemon socket is not at /var/run/docker.sock
+// (Docker Desktop / OrbStack / Colima put it under the user's home), so the CLI
+// fell back to the default context and failed with
+// "failed to connect to the docker API at unix:///var/run/docker.sock ... no
+// such file or directory". The command must probe the common socket paths (and
+// the macOS console user's home as a fallback) and export DOCKER_HOST.
+func TestServiceCommand_DockerHostDiscovery(t *testing.T) {
+	types := []string{"docker-compose", "docker-swarm"}
+	for _, typ := range types {
+		t.Run(typ, func(t *testing.T) {
+			s := &Step{Service: &Service{
+				Type:    typ,
+				Name:    "my-task",
+				Config:  "services:\n  web:\n    image: nginx:alpine",
+				Timeout: 60,
+			}}
+
+			cmd, err := s.buildServiceCommand()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			for _, want := range []string{
+				`if [ -z "$DOCKER_HOST" ]`,
+				`"$_home/.docker/run/docker.sock"`,
+				`"$_home/.orbstack/run/docker.sock"`,
+				`"$_home/.colima/default/docker.sock"`,
+				`"$_home/.colima"/*/docker.sock`,
+				`stat -f '%Su' /dev/console`,
+				`export DOCKER_HOST="unix://$_sock"`,
+				`[ -S /var/run/docker.sock ]`,
+			} {
+				if !strings.Contains(cmd, want) {
+					t.Errorf("command missing %q\ncommand:\n%s", want, cmd)
+				}
+			}
+		})
+	}
+}
+
 func TestBuildServiceCommandDefaultNamespace(t *testing.T) {
 	s := &Step{Service: &Service{
 		Type:    "k8s",
