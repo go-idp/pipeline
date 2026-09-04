@@ -351,6 +351,10 @@ stages:
 - **`unknown flag: --detach`** —— 远端主机 docker CLI 低于 26.0（`docker stack deploy --detach`
   是 Docker Engine 26.0.0 才引入的）。升级远端 docker，或保持 pipeline 现状（会自动回退为
   分离式部署 + 副本收敛轮询）。
+- **`error saving credentials: mkdir /root: read-only file system`** —— 远端主机 `HOME`
+  只读（如 macOS agent 以 `HOME=/root` 运行），`docker login` 无法写 `~/.docker/config.json`。
+  pipeline 会在登录前把 `DOCKER_CONFIG` 重定向到可写临时目录（并对随后的部署同样生效），故无需
+  额外处理；保持当前 pipeline CLI，或确保远端主机 `HOME` 可写。
 - **`kubectl: unable to load kubeconfig`** —— 远端主机没有有效 kubeconfig；把步骤的
   `kubeconfig` 指到远端正确路径。
 - **`docker-swarm: startup timeout`** —— stack 未在 `timeout` 内收敛；检查 swarm 节点上的

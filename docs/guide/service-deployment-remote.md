@@ -366,6 +366,12 @@ instead of any of these commands.
   endpoint and credentials; or use key-based auth.
 - **`docker stack deploy: This node is not a swarm manager`** — the remote host is not
   a swarm manager; run `docker swarm init` (or join an existing cluster) first.
+- **`error saving credentials: mkdir /root: read-only file system`** — the remote
+  host's `HOME` is read-only (e.g. a macOS agent running with `HOME=/root`), so
+  `docker login` cannot write `~/.docker/config.json`. pipeline redirects
+  `DOCKER_CONFIG` to a writable temp dir before logging in (and for the following
+  deploy), so no action is needed; prefer the current pipeline CLI, or ensure the
+  remote host has a writable `HOME`.
 - **`unknown flag: --detach`** — the remote host's docker CLI is older than 26.0
   (`--detach` for `docker stack deploy` was added in Docker Engine 26.0.0). Upgrade
   docker on the remote host, or keep pipeline as-is (it will fall back to a detached
