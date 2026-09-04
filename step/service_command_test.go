@@ -297,7 +297,10 @@ func TestServiceCommand_PathBootstrap(t *testing.T) {
 // fell back to the default context and failed with
 // "failed to connect to the docker API at unix:///var/run/docker.sock ... no
 // such file or directory". The command must probe the common socket paths (and
-// the macOS console user's home as a fallback) and export DOCKER_HOST.
+// the macOS console user's home / all /Users/* homes as a fallback), export
+// DOCKER_HOST, and when the current HOME is not writable (e.g. /root) switch
+// HOME to the docker user's home derived from the socket path so docker login /
+// Compose plugin discovery work under one home.
 func TestServiceCommand_DockerHostDiscovery(t *testing.T) {
 	types := []string{"docker-compose", "docker-swarm"}
 	for _, typ := range types {
@@ -323,6 +326,9 @@ func TestServiceCommand_DockerHostDiscovery(t *testing.T) {
 				`stat -f '%Su' /dev/console`,
 				`export DOCKER_HOST="unix://$_sock"`,
 				`[ -S /var/run/docker.sock ]`,
+				`/Users/*`,
+				`[ ! -w "${HOME:-/}" ]`,
+				`export HOME="/Users/${_u%%/*}"`,
 			} {
 				if !strings.Contains(cmd, want) {
 					t.Errorf("command missing %q\ncommand:\n%s", want, cmd)

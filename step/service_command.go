@@ -124,18 +124,22 @@ fi`, bin, bin)
 }
 
 // dockerHostDiscovery returns a shell snippet that points DOCKER_HOST at the
-// running docker daemon. On macOS the daemon socket is not at /var/run/docker.sock
-// (the Linux default); Docker Desktop / OrbStack / Colima place it under the
-// user's home: ~/.docker/run/docker.sock, ~/.orbstack/run/docker.sock, or
+// running docker daemon and, when the pipeline's HOME is not writable (e.g. a
+// macOS agent running with HOME=/root), switches HOME to the docker user's home.
+//
+// On macOS the daemon socket is not at /var/run/docker.sock (the Linux default);
+// Docker Desktop / OrbStack / Colima place it under the user's home:
+// ~/.docker/run/docker.sock, ~/.orbstack/run/docker.sock, or
 // ~/.colima/<profile>/docker.sock. Without DOCKER_HOST the docker CLI falls back
 // to the default context (unix:///var/run/docker.sock) and fails on macOS with
 // "failed to connect to the docker API at unix:///var/run/docker.sock ...
 // no such file or directory".
 //
-// It honors an existing DOCKER_HOST (no-op on Linux / when already set). If the
-// pipeline runs as a user other than the docker user (e.g. root), it also probes
-// the console (logged-in desktop) user's home on macOS, so the socket is found
-// regardless.
+// The docker user's home is derived from a found socket (e.g. /Users/<u>/.colima/
+// ...), so HOME is set to it even when the pipeline runs as a different user and
+// the console login user differs from the docker user. With a writable HOME at the
+// docker user's home, `docker login` writes to ~/.docker and the Compose plugin in
+// ~/.docker/cli-plugins is discovered directly (no DOCKER_CONFIG redirect needed).
 func dockerHostDiscovery() string {
 	return `if [ -z "$DOCKER_HOST" ]; then
   _docker_home="${HOME:-}"
@@ -143,11 +147,19 @@ func dockerHostDiscovery() string {
   if [ "$(uname -s)" = "Darwin" ]; then
     _console_user="$(stat -f '%Su' /dev/console 2>/dev/null || true)"
   fi
-  for _home in "$_docker_home" "/Users/$_console_user"; do
-    if [ -n "$_home" ] && [ "$_home" != "/Users/" ]; then
+  for _home in "$_docker_home" "/Users/$_console_user" /Users/*; do
+    if [ -n "$_home" ] && [ "$_home" != "/Users/" ] && [ -d "$_home" ]; then
       for _sock in "$_home/.docker/run/docker.sock" "$_home/.orbstack/run/docker.sock" "$_home/.colima/default/docker.sock" "$_home/.colima"/*/docker.sock; do
         if [ -S "$_sock" ]; then
           export DOCKER_HOST="unix://$_sock"
+          # Derive the docker user's home from the socket path and, if the current
+          # HOME is not writable (e.g. /root), switch to it so docker login /
+          # plugin discovery / the socket all work under one home.
+          if [ ! -w "${HOME:-/}" ]; then
+            case "$_sock" in
+              /Users/*) _u="${_sock#/Users/}"; export HOME="/Users/${_u%%/*}" ;;
+            esac
+          fi
           break 2
         fi
       done
