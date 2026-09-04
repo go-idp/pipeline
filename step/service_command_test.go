@@ -260,3 +260,49 @@ func TestBuildServiceCommandDefaultNamespace(t *testing.T) {
 		t.Errorf("expected default namespace in command:\n%s", cmd)
 	}
 }
+
+// TestServiceCommand_RegistryLoginRedirectsDockerConfig guards the regression
+// where the generated remote deploy command ran `docker login` without first
+// redirecting DOCKER_CONFIG. On hosts whose HOME is read-only (e.g. macOS agents
+// running with HOME=/root), Docker tried to write ~/.docker/config.json and
+// failed with "error saving credentials: mkdir /root: read-only file system",
+// aborting the whole deploy. The command must point DOCKER_CONFIG at a writable
+// temp dir before logging in, and the same DOCKER_CONFIG stays exported for the
+// following deploy (--with-registry-auth / compose up) so auth is still sent.
+func TestServiceCommand_RegistryLoginRedirectsDockerConfig(t *testing.T) {
+	types := []string{"docker-compose", "docker-swarm"}
+	for _, typ := range types {
+		t.Run(typ, func(t *testing.T) {
+			s := &Step{Service: &Service{
+				Type:                  typ,
+				Name:                  "my-task",
+				Config:                "services:\n  web:\n    image: nginx:alpine",
+				Timeout:               60,
+				ImageRegistry:         "registry.example.com",
+				ImageRegistryUsername: "deploy",
+				ImageRegistryPassword: "secret",
+			}}
+
+			cmd, err := s.buildServiceCommand()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			for _, want := range []string{
+				`export PIPELINE_SERVICE_DOCKER_CONFIG=$(mktemp -d)`,
+				`export DOCKER_CONFIG="$PIPELINE_SERVICE_DOCKER_CONFIG"`,
+				"docker login",
+				`[ -n "$PIPELINE_SERVICE_DOCKER_CONFIG" ] && rm -rf "$PIPELINE_SERVICE_DOCKER_CONFIG"`,
+			} {
+				if !strings.Contains(cmd, want) {
+					t.Errorf("command missing %q\ncommand:\n%s", want, cmd)
+				}
+			}
+
+			if strings.Contains(cmd, "secret") {
+				t.Errorf("registry password leaked into command:\n%s", cmd)
+			}
+		})
+	}
+}
+
