@@ -89,10 +89,29 @@ func registryLogin() string {
 fi`
 }
 
-// head returns the common prologue: fail-fast + temp file with cleanup.
+// pathBootstrap returns a shell snippet that prepends the common Homebrew bin
+// dirs to PATH when <bin> is not already resolvable. On macOS, docker / kubectl
+// are installed via Homebrew (Apple Silicon: /opt/homebrew/bin, Intel:
+// /usr/local/bin), which is not on the default PATH of a non-login /bin/sh, so
+// the generated command would otherwise fail with "<bin>: command not found"
+// (exit 127). It is a no-op when the binary is already on PATH, so it is safe on
+// Linux hosts too.
+func pathBootstrap(bin string) string {
+	return fmt.Sprintf(`if ! command -v %s >/dev/null 2>&1; then
+  for _bin in /opt/homebrew/bin /usr/local/bin; do
+    if [ -x "$_bin/%s" ]; then
+      export PATH="$_bin:$PATH"
+      break
+    fi
+  done
+fi`, bin, bin)
+}
+
+// head returns the common prologue: fail-fast + PATH bootstrap + temp file.
 func (s *Step) head() []string {
 	return []string{
 		"set -e",
+		pathBootstrap("docker"),
 		fmt.Sprintf("export %s=$(mktemp)", serviceConfigFile),
 		// PIPELINE_SERVICE_DOCKER_CONFIG is only set when a registry is configured
 		// (see registryLogin); clean it up when present, otherwise skip.
@@ -184,6 +203,7 @@ func (s *Step) buildKubeCommand() string {
 	if s.Service.Kubeconfig != "" {
 		parts = append(parts, fmt.Sprintf(`export KUBECONFIG="%s"`, s.Service.Kubeconfig))
 	}
+	parts = append(parts, pathBootstrap("kubectl"))
 	parts = append(parts, `kubectl apply -f "$PIPELINE_SERVICE_FILE"`)
 	parts = append(parts, kubeReadiness(ns, s.Service.Timeout))
 

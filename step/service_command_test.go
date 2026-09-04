@@ -244,6 +244,52 @@ func TestEngineVersionAtLeast(t *testing.T) {
 	}
 }
 
+// TestServiceCommand_PathBootstrap guards the regression where the generated
+// remote command ran `docker` / `kubectl` before ensuring the binary is on PATH.
+// A non-login /bin/sh (used by the remote engine/agent) does not include the
+// Homebrew bin dirs on macOS, so docker installed at /opt/homebrew/bin (Apple
+// Silicon) or /usr/local/bin (Intel) is "command not found" (exit 127). The
+// command must prepend those dirs to PATH when the binary is missing.
+func TestServiceCommand_PathBootstrap(t *testing.T) {
+	t.Run("docker (compose/swarm)", func(t *testing.T) {
+		s := &Step{Service: &Service{
+			Type:    "docker-swarm",
+			Name:    "my-stack",
+			Config:  "services:\n  web:\n    image: nginx:alpine",
+			Timeout: 60,
+		}}
+		cmd, err := s.buildServiceCommand()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, want := range []string{
+			"command -v docker",
+			"/opt/homebrew/bin",
+			"/usr/local/bin",
+			`export PATH="$_bin:$PATH"`,
+		} {
+			if !strings.Contains(cmd, want) {
+				t.Errorf("command missing %q\ncommand:\n%s", want, cmd)
+			}
+		}
+	})
+
+	t.Run("kubectl (k8s)", func(t *testing.T) {
+		s := &Step{Service: &Service{
+			Type:    "kubernetes",
+			Config:  "apiVersion: v1\nkind: Service\nmetadata:\n  name: web",
+			Timeout: 60,
+		}}
+		cmd, err := s.buildServiceCommand()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(cmd, "command -v kubectl") {
+			t.Errorf("kube command missing kubectl path bootstrap\ncommand:\n%s", cmd)
+		}
+	})
+}
+
 func TestBuildServiceCommandDefaultNamespace(t *testing.T) {
 	s := &Step{Service: &Service{
 		Type:    "k8s",
